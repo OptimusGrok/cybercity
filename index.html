@@ -44779,6 +44779,98 @@ var CCCipherPuzzle = (function() {
 })();
 window.CCCipherPuzzle = CCCipherPuzzle;
 
+// ---- cc_ending_tease.js ----
+(function() {
+  if (typeof CCEnding === "undefined" || CCEnding.__endingTease) return;
+  var ORIG = CCEnding;
+  var ECHO = 'LANTERN (quiet): "I remembered her name."';
+  var OUTDOOR = { night: 1, rays: 1, dawn: 1, roof: 1, static: 1, window: 1 };
+  function hasEcho(pages) {
+    for (var i = 0; i < (pages || []).length; i++) {
+      if (pages[i] && /remembered her name/i.test(pages[i][1] || "")) return true;
+    }
+    return false;
+  }
+  function truePagesWithEcho() {
+    var base = CC_ENDINGS && CC_ENDINGS.true && CC_ENDINGS.true.pages ? CC_ENDINGS.true.pages : [];
+    var pages = base.slice();
+    if (hasEcho(pages)) return pages;
+    var idx = pages.length > 0 ? pages.length - 1 : 0;
+    pages.splice(idx, 0, ["rays", ECHO]);
+    return pages;
+  }
+  function drizzle(ctx2, EY, t) {
+    var i, u, rx, ry;
+    ctx2.fillStyle = "rgba(176,214,255,0.28)";
+    for (i = 0; i < 28; i++) {
+      u = (t * 1.35 + i * 0.37) % 1;
+      rx = ((i * 53 + 11) % W + (1 - u) * 14) % W;
+      ry = EY + u * 150;
+      ctx2.fillRect(Math.round(rx), Math.round(ry), 1, 3 + i % 2);
+    }
+  }
+  function wrongClear(ctx2, EY, t, key) {
+    var i;
+    if (key !== "night" && key !== "window") return;
+    ctx2.fillStyle = "rgba(200,220,255,0.65)";
+    for (i = 0; i < 55; i++) {
+      ctx2.fillRect((i * 47 + 3) % W, EY + i * 19 % 110, 1, 1);
+      if (i % 7 === 0) ctx2.fillRect((i * 47 + 4) % W, EY + i * 19 % 110, 1, 1);
+    }
+    ctx2.globalAlpha = 0.5 + 0.12 * Math.sin(t * 0.8);
+    ell(ctx2, 210, EY + 28, 9, 9, "#e8f0ff");
+    ctx2.globalAlpha = 0.18;
+    ell(ctx2, 210, EY + 28, 16, 16, "#c8d8ff");
+    ctx2.globalAlpha = 1;
+  }
+  CCEnding = function(kind) {
+    var subjectEcho = kind === "true" && typeof G !== "undefined" && G && G.flags && G.flags.subjectDown;
+    var echoDef = null, savedTrue = null;
+    if (subjectEcho && CC_ENDINGS && CC_ENDINGS.true) {
+      savedTrue = CC_ENDINGS.true;
+      echoDef = {
+        title: savedTrue.title,
+        music: savedTrue.music,
+        pages: truePagesWithEcho(),
+        __echo: true
+      };
+      CC_ENDINGS.true = echoDef;
+    }
+    var s = ORIG(kind);
+    if (savedTrue) {
+      CC_ENDINGS.true = savedTrue;
+      s.subjectEcho = true;
+      s.__echoPages = echoDef.pages;
+    }
+    var baseDraw = s.draw;
+    s.draw = function() {
+      baseDraw();
+      if (s.phase !== "pages") return;
+      var pages = s.__echoPages ? s.__echoPages : CC_ENDINGS && CC_ENDINGS[kind] && CC_ENDINGS[kind].pages ? CC_ENDINGS[kind].pages : null;
+      if (!pages) return;
+      var pg = pages[Math.min(s.line, pages.length - 1)];
+      if (!pg || !OUTDOOR[pg[0]]) return;
+      var EY = H - 224 - BOT;
+      if (kind === "good") drizzle(ctx, EY, s.t);
+      else if (kind === "bad") wrongClear(ctx, EY, s.t, pg[0]);
+    };
+    s.weather = kind === "good" ? "drizzle" : kind === "bad" ? "clear_wrong" : "clear";
+    return s;
+  };
+  CCEnding.__endingTease = true;
+  window.CCEndingTease = {
+    echoLine: ECHO,
+    hasEcho,
+    pagesForTrue: function(subjectDown) {
+      if (!subjectDown) return (CC_ENDINGS && CC_ENDINGS.true && CC_ENDINGS.true.pages || []).slice();
+      return truePagesWithEcho();
+    },
+    weatherFor: function(k) {
+      return k === "good" ? "drizzle" : k === "bad" ? "clear_wrong" : "clear";
+    }
+  };
+})();
+
 // ---- main.js ----
 var last = 0;
 function present() {

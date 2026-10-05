@@ -9481,6 +9481,17 @@ function equipOptions(m, slot) {
     return it.type === slot && (slot === "armor" || kinds.indexOf(it.kind) >= 0);
   });
 }
+function shopBuyPrice(it) {
+  var base = it && it.price || 0;
+  try {
+    if (typeof CCShopMult === "function") {
+      var m = CCShopMult();
+      if (m && m !== 1) return Math.max(1, Math.floor(base * m));
+    }
+  } catch (e) {
+  }
+  return base;
+}
 function ShopScene(stock, done) {
   var s = { name: "shop", stock, mode: "top", top: { i: 0 }, li: { i: 0 }, msg: "", msgT: 0 };
   function sellList() {
@@ -9522,8 +9533,9 @@ function ShopScene(stock, done) {
       if (Input.pressed("a") && list.length) {
         var k = list[s.li.i], it = CORE.ITEMS[k];
         if (s.mode === "buy") {
-          if (G.gold >= it.price && (G.inv[k] || 0) < 99) {
-            G.gold -= it.price;
+          var buyP = shopBuyPrice(it);
+          if (G.gold >= buyP && (G.inv[k] || 0) < 99) {
+            G.gold -= buyP;
             addItem(k);
             Cov.mark("buy", k);
             Quest.onItem(k);
@@ -9580,9 +9592,10 @@ function ShopScene(stock, done) {
     var list = s.mode === "sell" ? sellList() : stock;
     list.forEach(function(k2, i) {
       var it2 = CORE.ITEMS[k2], y = 32 + i * 12;
-      drawIcon(ctx, iconOfItem(k2), 22, y, s.mode === "buy" && G.gold < it2.price);
-      drawText(ctx, it2.name, 32, y, s.mode === "buy" && G.gold < it2.price ? "#8080a0" : "#ffffff");
-      drawText(ctx, pad(s.mode === "sell" ? Math.floor(it2.price / 2) : it2.price, 5) + "$", 150, y);
+      var bp = s.mode === "buy" ? shopBuyPrice(it2) : it2.price;
+      drawIcon(ctx, iconOfItem(k2), 22, y, s.mode === "buy" && G.gold < bp);
+      drawText(ctx, it2.name, 32, y, s.mode === "buy" && G.gold < bp ? "#8080a0" : "#ffffff");
+      drawText(ctx, pad(s.mode === "sell" ? Math.floor(it2.price / 2) : bp, 5) + "$", 150, y);
       drawText(ctx, "x" + pad(G.inv[k2] || 0, 2), 210, y, "#a0c8ff");
     });
     if (s.mode !== "top" && list.length) ctx.drawImage(SPR.hand, 6, 32 + s.li.i * 12);
@@ -34198,7 +34211,10 @@ if (typeof BX !== "undefined" && BX.idleFx) {
         return !G.flags.rook;
       } },
       { id: "rkscav", look: "miner", x: 17, y: 12, dir: 2, wander: true, talk: "rkscav", cond: function() {
-        return !!G.flags.rook;
+        return !!G.flags.rook && G.flags.rkYard !== "grunt";
+      } },
+      { id: "rkchief", look: "rkgrunt", x: 10, y: 8, dir: 0, talk: "rkchief", cond: function() {
+        return G.flags.rkYard === "grunt";
       } }
     ]
   };
@@ -35447,15 +35463,59 @@ var __async = (__this, __arguments, generator) => {
     }
     return say(
       "Busker: Last guy on Vesper who plays a real instrument. Sensors read it as noise, so Helix leaves me alone.",
-      f.rook ? "Busker: Heard the Kings lost their boss. The yard is quiet tonight. Good for the acoustics." : "Busker: Stay clear of the east gate. Rook's Kings are running a toll and it is mostly knuckles."
+      f.rkYard === "scav" ? "Busker: Scav took the yard. Toll is down - I can busk without paying knuckles." : f.rkYard === "grunt" ? "Busker: Grunt is on Rook's chair. Toll is worse. I play quieter." : f.rkYard === "empty" ? "Busker: Yard is empty. Quiet like a held breath. Good for the acoustics." : f.rook ? "Busker: Heard the Kings lost their boss. The yard is quiet tonight. Good for the acoustics." : "Busker: Stay clear of the east gate. Rook's Kings are running a toll and it is mostly knuckles."
     );
   };
   wrap("busker");
   TALK.rkscav = function() {
-    return say("Scavenger: The Kings' crown is on the floor and nobody wants it. Take what you want. Just not the juke.");
+    return __async(this, null, function* () {
+      var f = flags();
+      if (!f.rook) return say("Scavenger: Keep your head down. Rook still owns this scrap.");
+      if (f.rkYard === "scav") return say("Scavenger: Yard is mine now. Tolls are down. Water goes to the alley first - Helix can bill the rain.", "Scavenger: You want scrap, you ask. You want a fight, you leave.");
+      if (f.rkYard === "grunt") return say("Scavenger: Grunt took the crown. Tolls are back. I am keeping to the piles.");
+      if (f.rkYard === "empty") return say("Scavenger: Empty yard. Empty crown. I am not touching it - too many ghosts on that chair.");
+      yield say(
+        "Scavenger: Rook is gone. Crown is on the floor. Helix stopped sending water years ago - somebody still has to decide who drinks.",
+        "Scavenger: Scav like me runs the yard fair. A grunt runs it like Rook. Or we leave it empty and let the street decide.",
+        "Scavenger: Courier - you shook the Kings. Your call carries."
+      );
+      var c = yield ask("Who takes Rook's Yard?", ["Scav runs it fair", "Grunt takes the crown", "Leave it empty"]);
+      if (c < 0) return;
+      f.rkYard = c === 0 ? "scav" : c === 1 ? "grunt" : "empty";
+      f.rkSuccess = true;
+      f.spot_rkyard = true;
+      try {
+        if (!G.quests) G.quests = {};
+        if (!G.quests.rksuccess) G.quests.rksuccess = { s: 1, k: [], t: [] };
+        G.quests.rksuccess.t[0] = 1;
+        G.quests.rksuccess.s = 2;
+        if (Quest.toast) Quest.toast("Quest complete: Rust Kings Succession");
+      } catch (e) {
+      }
+      Audio8.sfx("ok");
+      if (f.rkYard === "scav") yield say("Scavenger: Alright. Fair it is. Tolls drop. Mart prices should ease if the alley breathes.", "[Rust Kings succession: Scav holds the yard]");
+      else if (f.rkYard === "grunt") yield say("Scavenger: Grunt will like that. Tell him the crown is warm.", "A Rust King grunt shoulders past and claims the chair.", "[Rust Kings succession: Grunt holds the yard - tolls rise]");
+      else yield say("Scavenger: Empty it is. I will watch the piles. Nobody sits the throne.", "[Rust Kings succession: Yard left empty]");
+      try {
+        if (field && field.mapName) {
+          var m = field.mapName, x = field.p.x, y = field.p.y, d = field.p.dir;
+          loadMap(m, x, y, d);
+        }
+      } catch (e2) {
+      }
+    });
   };
   TALK.rkgrunt = function() {
+    var f = flags();
+    if (f.rook && f.rkYard === "grunt") return say("Rust King: Yard is under new management. Toll is a cut of whatever you are carrying. Helix water? We take that too.");
+    if (f.rook) return say("Rust King: Boss is gone. Crown is still warm. Somebody has to sit it.");
     return say("Rust King: Boss is waiting for you. Walk past me and he gets angrier. Your choice, courier.");
+  };
+  TALK.rkchief = function() {
+    return say(
+      "Rust King: I am holding Rook's chair. Tolls are back. Water rations go through me.",
+      "Rust King: Helix stopped sending water. We did not. Pay up or walk around."
+    );
   };
   TALK.rook = function() {
     return SCRIPTS.rookIntro();
@@ -35474,7 +35534,7 @@ var __async = (__this, __arguments, generator) => {
         "Brick: ...I carried kids into those clinics. Helix stamped this arm and called it mercy.",
         "Brick: I am done being their muscle. If you are going after the hatch key, I am coming.",
         "Brick joined the party!",
-        "(Brick's Overdrive command: arrow combos. Watch his wind-up \u2014 he telegraphs heavy hits.)"
+        "(Brick's Overdrive command: arrow combos. Watch his wind-up - he telegraphs heavy hits.)"
       );
       healParty();
       return SCRIPTS.rookIntro();
@@ -35491,7 +35551,7 @@ var __async = (__this, __arguments, generator) => {
           "Rook: Courier. And the little Helix rat. Cute.",
           "Rook: BRICK! Earn your keep. Soften them up.",
           "A heavy with a plasma-forged arm steps out of the scrap shade. Helix paint still shows under the gang tags.",
-          "Cipher: That's Brick Haldane. Ex-Helix enforcer. Watch the Overdrive wind-up \u2014 he telegraphs it."
+          "Cipher: That's Brick Haldane. Ex-Helix enforcer. Watch the Overdrive wind-up - he telegraphs it."
         );
         startBattle(["brick"], "gutters", { boss: true, music: "rook", onWin: SCRIPTS.brickJoin });
         return;
@@ -35923,6 +35983,15 @@ var __async = (__this, __arguments, generator) => {
   SHOP_STOCK.bazaar = ["arcblade", "piston", "neuraldeck", "plasmafist2"];
   SHOP_STOCK.noodle = ["noodle", "tonic"];
   SHOP_STOCK.general = ["tonic", "hitonic", "tea", "feather", "leather", "chain", "patch"];
+  window.CCShopMult = function() {
+    var m = typeof field !== "undefined" && field && field.mapName || "";
+    if (!/^(town|inn|shop|arms|cottage)$/.test(m)) return 1;
+    var y = G && G.flags && G.flags.rkYard;
+    if (y === "scav") return 0.85;
+    if (y === "grunt") return 1.25;
+    if (y === "empty") return 1.1;
+    return 1;
+  };
   function addQuest(q) {
     QUESTS.push(q);
     QUEST_BY_ID[q.id] = q;
@@ -36085,6 +36154,22 @@ var __async = (__this, __arguments, generator) => {
     after: ["Dutch: The coil'll hold. It'll hold."],
     steps: [{ t: "spot", spot: "dogtag", map: "market", item: "dogtag", txt: "Find Dutch's dog tag (Market, east corner)", find: "Wedged behind a sign stack: a dented Helix dog tag. DUTCH, R. UNIT 7." }],
     reward: { gold: 250, items: { plasmafist2: 1 }, xp: 200 }
+  });
+  addQuest({
+    id: "rksuccess",
+    name: "Rust Kings Succession",
+    giver: "rkscav",
+    who: "Yard Scavenger",
+    where: "Rook's Yard",
+    blurb: "Rook is gone. Choose who holds the yard - Scav, a grunt, or leave it empty. Changes Gutters talk and shop prices.",
+    offer: ["Scavenger: Crown on the floor. Helix stopped the water. Somebody still has to choose."],
+    ask: "Settle the Rust Kings' yard?",
+    accepted: "Scavenger: Then pick. Fair scav, hard grunt, or empty throne.",
+    progress: ["Scavenger: Still waiting on your call, courier."],
+    ready: ["Scavenger: Choice locked. The alley will feel it."],
+    after: ["Scavenger: The crown stays where you put it."],
+    steps: [{ t: "spot", spot: "rkyard", txt: "Decide who takes Rook's Yard (talk to the Scavenger in the yard)" }],
+    reward: { gold: 80, items: { tonic: 2 }, xp: 60 }
   });
   addQuest({
     id: "busker",
@@ -44316,6 +44401,383 @@ var __async = (__this, __arguments, generator) => {
     openTransitHome
   };
 })();
+
+// ---- cc_mercy_logs.js ----
+var __async = (__this, __arguments, generator) => {
+  return new Promise((resolve, reject) => {
+    var fulfilled = (value) => {
+      try {
+        step(generator.next(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var rejected = (value) => {
+      try {
+        step(generator.throw(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+    step((generator = generator.apply(__this, __arguments)).next());
+  });
+};
+var CCMercyLogs = (function() {
+  var FEN = "mercyLogFen", RUST = "mercyLogRust", INTERN = "mercyLogIntern";
+  var _npcs, _talk;
+  function flags() {
+    return typeof G !== "undefined" && G && G.flags ? G.flags : {};
+  }
+  function has(id) {
+    return !!(G && G.party && G.party.some(function(m) {
+      return m.id === id;
+    }));
+  }
+  function seenN() {
+    var f = flags();
+    return (f[FEN] ? 1 : 0) + (f[RUST] ? 1 : 0) + (f[INTERN] ? 1 : 0);
+  }
+  function mark(flag) {
+    var f = flags();
+    if (f[flag]) return;
+    f[flag] = true;
+    try {
+      if (typeof Cov !== "undefined" && Cov.mark) Cov.mark("misc", flag);
+    } catch (e) {
+    }
+  }
+  function playFen() {
+    return __async(this, null, function* () {
+      var f = flags();
+      if (f[FEN]) {
+        yield say("The steamer hiss loops. Fen's echo ladles the same bowl into the same bowl. Rain that is not rain beads on plastic that is not plastic.");
+        return;
+      }
+      try {
+        if (typeof Audio8 !== "undefined" && Audio8.sfx) Audio8.sfx("inn");
+      } catch (e) {
+      }
+      yield say(
+        "A noodle steamer that never cools. Auntie Fen stands over it \u2014 or the memory of her \u2014 ladle ticking like a metronome.",
+        "Fen (echo): Wires and wontons. The blobs shorted my steamer again. \u2026Funny. I can't feel the steam on my wrists.",
+        "Fen (echo): Subject tag on the cart says MERCY-0FEN. Quarterly. I signed the consent form for the free clinic visor. For Wonton's chip, they said.",
+        "A green harvest glyph blinks once above the steamer, then softens to a kitchen night-light.",
+        "Nyx: Fen. We're coming. Keep the broth warm."
+      );
+      if (has("lio")) yield say("Cipher (quiet): Consent form. My handshake ran under that checkbox.");
+      mark(FEN);
+    });
+  }
+  function playRust() {
+    return __async(this, null, function* () {
+      var f = flags();
+      if (f[RUST]) {
+        yield say("The kid kicks the same scrap can again. Crown patch on the jacket. Crown patch forever.");
+        return;
+      }
+      try {
+        if (typeof Audio8 !== "undefined" && Audio8.sfx) Audio8.sfx("ok");
+      } catch (e) {
+      }
+      yield say(
+        "A Rust King kid \u2014 fourteen, crown patch, scraped knuckles \u2014 sits on a memory crate that used to be a yard gate.",
+        "Kid (echo): Boss said Helix stopped sending water. Said the chip would keep us cool when the pumps died.",
+        "Kid (echo): I just wanted a full canteen. They put the Mercy light in and I dreamed of rain that tasted like metal.",
+        "The kid's temple ticks green. Number 01994. He smiles like someone promised noodles.",
+        "Nyx: Stay put, kid. We're pulling the queue apart."
+      );
+      if (has("bram")) yield say("Brick: \u2026I used to drink with boys his age. Same patch. Same thin arms.");
+      mark(RUST);
+    });
+  }
+  function playIntern() {
+    return __async(this, null, function* () {
+      var f = flags();
+      if (f[INTERN]) {
+        yield say("The intern stamps Ascension Compliance on a form that never ends. Chapter Four of the policy binder stays open.");
+        return;
+      }
+      try {
+        if (typeof Audio8 !== "undefined" && Audio8.sfx) Audio8.sfx("buzz");
+      } catch (e) {
+      }
+      yield say(
+        "A Helix intern in a too-clean coat sits at a classroom desk that is also a compliance booth. Stamp. Stamp. Stamp.",
+        "Intern (echo): Ascension Compliance \u2014 Form 7C. Harvest schedule acknowledged. I filed three hundred of these before lunch.",
+        "Intern (echo): They said if I stayed late I could keep my mother's chip from the next quarterly. I stamped yes. I always stamp yes.",
+        "A stamp ink blot becomes a Mercy glyph. Subject 00081. The binder never turns the page.",
+        "Nyx: Your yes was never free. Hold on."
+      );
+      if (has("sable")) yield say("Sable-9: Yes, Director\u2026 No. That voice is not mine anymore.");
+      mark(INTERN);
+    });
+  }
+  function installNpcs() {
+    if (_npcs || typeof MAPS === "undefined" || !MAPS.lt2) return;
+    var m = MAPS.lt2;
+    m.npcs = m.npcs || [];
+    function hasId(id) {
+      return m.npcs.some(function(n) {
+        return n.id === id;
+      });
+    }
+    if (!hasId("mercyfen")) m.npcs.push({ id: "mercyfen", look: "farmer", x: 2, y: 14, dir: 3, talk: "mercyfen" });
+    if (!hasId("mercyrust")) m.npcs.push({ id: "mercyrust", look: "kid", x: 12, y: 13, dir: 0, talk: "mercyrust" });
+    if (!hasId("mercyintern")) m.npcs.push({ id: "mercyintern", look: "woman", x: 25, y: 13, dir: 2, talk: "mercyintern" });
+    _npcs = true;
+  }
+  function installTalk() {
+    if (_talk || typeof TALK === "undefined") return;
+    TALK.mercyfen = function() {
+      return playFen();
+    };
+    TALK.mercyrust = function() {
+      return playRust();
+    };
+    TALK.mercyintern = function() {
+      return playIntern();
+    };
+    _talk = true;
+  }
+  function install() {
+    installNpcs();
+    installTalk();
+  }
+  install();
+  setTimeout(install, 0);
+  return {
+    FEN,
+    RUST,
+    INTERN,
+    seenN,
+    playFen,
+    playRust,
+    playIntern,
+    installNpcs,
+    installTalk,
+    install
+  };
+})();
+window.CCMercyLogs = CCMercyLogs;
+
+// ---- cc_cipher_puzzle.js ----
+var __async = (__this, __arguments, generator) => {
+  return new Promise((resolve, reject) => {
+    var fulfilled = (value) => {
+      try {
+        step(generator.next(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var rejected = (value) => {
+      try {
+        step(generator.throw(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+    step((generator = generator.apply(__this, __arguments)).next());
+  });
+};
+var CCCipherPuzzle = (function() {
+  var FLAG = "cipherPatch", OFFERED = "cipherPatchOffered";
+  var NODES = [
+    {
+      prompt: "Node 1/3 \u2014 AUTH handshake. Which rewrite kills Helix's silent consent?",
+      choices: ["Mirror-key: reverse the auth (L. VARGA \u2192 ward)", "Keep factory defaults", "Spoof Mara's badge"],
+      ok: 0,
+      fail: "Cipher: That still stamps consent. Mirror it. Auth has to face outward."
+    },
+    {
+      prompt: "Node 2/3 \u2014 HARVEST schedule. Where does the quarterly queue die?",
+      choices: ["Null the quarterly queue", "Delay harvest by one cycle", "Encrypt the schedule"],
+      ok: 0,
+      fail: "Cipher: Delay is still a harvest. Null it. Empty the queue."
+    },
+    {
+      prompt: "Node 3/3 \u2014 CARETAKER bind. Who holds the latch instead of Mara?",
+      choices: ["Bind latch to LANTERN ward", "Bind latch to Spire root", "Leave unbound"],
+      ok: 0,
+      fail: "Cipher: Spire root is Mara. Bind it to LANTERN \u2014 she already watches the children."
+    }
+  ];
+  function flags() {
+    return typeof G !== "undefined" && G && G.flags ? G.flags : {};
+  }
+  function has(id) {
+    return !!(G && G.party && G.party.some(function(m) {
+      return m.id === id;
+    }));
+  }
+  function isLatticeBattle(bg) {
+    if (bg === "lattice" || bg === "core") return true;
+    try {
+      if (typeof field !== "undefined" && field && field.mapName && /^lt/.test(field.mapName)) return true;
+    } catch (e) {
+    }
+    return false;
+  }
+  function runNodes() {
+    return __async(this, null, function* () {
+      for (var i = 0; i < NODES.length; i++) {
+        var n = NODES[i], done = false;
+        while (!done) {
+          var c = yield ask(n.prompt, n.choices);
+          if (c === n.ok) {
+            done = true;
+            try {
+              if (typeof Audio8 !== "undefined" && Audio8.sfx) Audio8.sfx("ok");
+            } catch (e) {
+            }
+            yield say("Cipher: Node " + (i + 1) + " rewritten. Handshake fragment holds.");
+          } else {
+            try {
+              if (typeof Audio8 !== "undefined" && Audio8.sfx) Audio8.sfx("buzz");
+            } catch (e) {
+            }
+            yield say(n.fail);
+          }
+        }
+      }
+    });
+  }
+  function offerPuzzle(fromBreach) {
+    return __async(this, null, function* () {
+      var f = flags();
+      if (f[FLAG]) return true;
+      if (!f.spec) return false;
+      f[OFFERED] = true;
+      var lead = fromBreach ? "Cipher's hands shake over the dark glass. The authorship line still burns." : "The terminal is dark \u2014 but Cipher's deck still sees the Mercy handshake underneath.";
+      yield say(
+        lead,
+        "Cipher: I wrote this. I can rewrite it. Three nodes. Auth, harvest, caretaker bind.",
+        "Cipher: If it takes, every Lattice fight we walk into carries an Anti-Harvest ward. Party-wide."
+      );
+      var c = yield ask("Rewrite the Mercy handshake?", ["Rewrite the three nodes", "Not now"]);
+      if (c !== 0) {
+        yield say("Cipher: \u2026Okay. The mirror is out. The rewrite can wait. Console stays dark until we're ready.");
+        return false;
+      }
+      yield runNodes();
+      f[FLAG] = true;
+      try {
+        if (typeof Cov !== "undefined" && Cov.mark) Cov.mark("misc", FLAG);
+      } catch (e) {
+      }
+      try {
+        if (typeof Audio8 !== "undefined" && Audio8.sfx) Audio8.sfx("levelup");
+      } catch (e) {
+      }
+      yield say(
+        "Cipher: Handshake inverted. Anti-Harvest patch compiled \u2014 L. VARGA, on purpose this time.",
+        "Nyx: Lattice will feel that.",
+        "[Party-wide Anti-Harvest buff unlocked for Lattice battles.]"
+      );
+      if (has("bram")) yield say("Brick: Good. Make the damn thing feed us for once.");
+      try {
+        if (typeof Quest !== "undefined" && Quest.toast) Quest.toast("Anti-Harvest handshake armed (Lattice)");
+      } catch (e) {
+      }
+      return true;
+    });
+  }
+  function playDirect() {
+    return __async(this, null, function* () {
+      return offerPuzzle(false);
+    });
+  }
+  function wrapConsole() {
+    if (typeof TILEUSE === "undefined" || !TILEUSE.console || TILEUSE.__cipherPuzzle) return;
+    var orig = TILEUSE.console;
+    TILEUSE.console = function() {
+      return __async(this, arguments, function* () {
+        var f = flags();
+        if (f[FLAG]) {
+          yield say("Cipher's rewrite hums under the dark glass. Anti-Harvest handshake: armed for the Lattice.");
+          return;
+        }
+        if (f.spec) {
+          yield offerPuzzle(false);
+          return;
+        }
+        var had = !!f.spec;
+        yield orig.apply(this, arguments);
+        if (!had && flags().spec && !flags()[FLAG]) {
+          try {
+            yield offerPuzzle(true);
+          } catch (e) {
+          }
+        }
+      });
+    };
+    TILEUSE.__cipherPuzzle = true;
+  }
+  function wrapGuard() {
+    if (typeof CCST === "undefined" || !CCST.guard || CCST.__cipherAntiH) return;
+    var _g = CCST.guard;
+    CCST.guard = function(u, amt) {
+      amt = _g(u, amt);
+      try {
+        if (flags()[FLAG] && u && u.fx && u.fx.antiH > 0 && amt > 0) {
+          amt = Math.max(1, Math.round(amt * 0.65));
+        }
+      } catch (e) {
+      }
+      return amt;
+    };
+    if (CCST.FXN && !CCST.FXN.antiH) CCST.FXN.antiH = ["Anti-Harvest", "#7af0ff"];
+    CCST.__cipherAntiH = true;
+  }
+  function wrapBattle() {
+    if (typeof BattleScene !== "function" || BattleScene.__cipherPatch) return;
+    var _BS = BattleScene;
+    BattleScene = function(formation, bgKind, opts) {
+      var B = _BS(formation, bgKind, opts);
+      if (!flags()[FLAG] || !isLatticeBattle(bgKind)) return B;
+      var _enter = B.enter;
+      B.enter = function() {
+        _enter.apply(this, arguments);
+        try {
+          var apply = function() {
+            if (!B.party || typeof CCST === "undefined" || !CCST.setFx) return;
+            B.party.forEach(function(p) {
+              if (p.m && p.m.hp > 0) CCST.setFx(B, p, "antiH", 999);
+            });
+            try {
+              if (B.api && B.api.showMsg) B.api.showMsg("Anti-Harvest handshake online", 1.4);
+            } catch (e) {
+            }
+          };
+          setTimeout(apply, 420);
+        } catch (e) {
+        }
+      };
+      return B;
+    };
+    BattleScene.__cipherPatch = true;
+  }
+  function install() {
+    wrapConsole();
+    wrapGuard();
+    wrapBattle();
+  }
+  install();
+  setTimeout(install, 0);
+  return {
+    FLAG,
+    OFFERED,
+    NODES,
+    offerPuzzle,
+    playDirect,
+    runNodes,
+    isLatticeBattle,
+    install
+  };
+})();
+window.CCCipherPuzzle = CCCipherPuzzle;
 
 // ---- main.js ----
 var last = 0;

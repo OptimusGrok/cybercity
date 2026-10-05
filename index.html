@@ -7278,8 +7278,14 @@ function DialogScene(pages, choices, resolve, opts) {
   };
   self.draw = function() {
     var pg = flat[self.page], y0 = opts.top ? 8 : 150 + (H - 224 - BOT);
-    var look = pg.who && speakerLook(pg.who), px = 8;
-    if (look) {
+    var look = pg.who && speakerLook(pg.who), px = 8, pid = pg.who && typeof CCPhoto !== "undefined" ? CCPhoto.forSpeaker(pg.who) : null;
+    if (pid && CCPhoto.img(pid)) {
+      var PW = 46, PH = 50, ppy = opts.top ? y0 + 70 : y0 - PH - 8;
+      drawWindow(ctx, 4, ppy, PW + 6, PH + 6);
+      CCPhoto.draw(ctx, pid, 7, ppy + 3, PW, PH, self, null, 0.35);
+      px = 60;
+      look = pid;
+    } else if (look) {
       var py = opts.top ? y0 + 66 : y0 - 33;
       drawWindow(ctx, 6, py, 42, 36);
       ctx.save();
@@ -8346,12 +8352,9 @@ function FieldScene() {
   f.canZoom = function() {
     return !(typeof ICam !== "undefined" && ICam.is(f));
   };
-  f.minZoom = function() {
-    return clamp(Math.max(W / Math.max(1, f.w * 16), H / Math.max(1, f.h * 16)), ZOOM_MIN, 1);
-  };
   f.setZoom = function(z, instant) {
     if (!f.canZoom()) return;
-    z = clamp(z, f.minZoom(), ZOOM_MAX);
+    z = clamp(z, ZOOM_MIN, ZOOM_MAX);
     f.zoomT = z;
     G.zoom = Math.round(z * 1e3) / 1e3;
     if (instant) {
@@ -8541,7 +8544,7 @@ function loadMap(name, x, y, dir) {
   f.p.dir = dir || 0;
   f.p.walkD = 0;
   f.p.stepAcc = 0;
-  f.zoom = f.zoomT = f.canZoom() ? clamp(G.zoom || 1, f.minZoom(), ZOOM_MAX) : 1;
+  f.zoom = f.zoomT = f.canZoom() ? clamp(G.zoom || 1, ZOOM_MIN, ZOOM_MAX) : 1;
   if (typeof ICam !== "undefined" && ICam.is(f)) f.zoom = f.zoomT = ICam.zoom(f);
   {
     var sp = safeInteriorSpot(f, x, y, !M.exit);
@@ -8881,9 +8884,18 @@ var SCRIPTS = {
   }
 };
 var shakeT = 0;
-function partyPanel(x, y, m, sel) {
-  var s = CORE.stats(m);
-  ctx.drawImage(charSprite(m.id, 0, 0, m.hp <= 0 ? "dead" : "stand"), x, y + 2);
+function partyPanel(x, y, m, sel, room, scene) {
+  var s = CORE.stats(m), pid = room >= 46 && x >= 20 && typeof CCPhoto !== "undefined" ? CCPhoto.forChar(m.id) : null;
+  if (pid && CCPhoto.img(pid)) {
+    var ph = 43, pw = 40, px0 = x - 19, py0 = y;
+    R(ctx, px0 - 1, py0 - 1, pw + 2, ph + 2, m.hp <= 0 ? "#ff5070" : "#00c8e8");
+    CCPhoto.draw(ctx, pid, px0, py0, pw, ph, m.hp <= 0 ? null : scene, null, 0.35);
+    if (m.hp <= 0) {
+      ctx.globalAlpha = 0.55;
+      R(ctx, px0, py0, pw, ph, "#300010");
+      ctx.globalAlpha = 1;
+    }
+  } else ctx.drawImage(charSprite(m.id, 0, 0, m.hp <= 0 ? "dead" : "stand"), x, y + 2);
   drawText(ctx, CORE.CHARS[m.id].name, x + 24, y + 2, m.hp <= 0 ? "#ff8080" : "#ffffff");
   drawText(ctx, "LV " + m.lvl, x + 82, y + 2, "#a0c8ff");
   drawText(ctx, "HP " + pad(m.hp, 4) + "/" + pad(s.mhp, 4), x + 24, y + 13, m.hp <= s.mhp / 4 ? "#ffe060" : "#ffffff");
@@ -9205,7 +9217,7 @@ function MenuScene() {
     if (s.mode === "main" || s.mode === "pick" || s.mode === "itemTarget" || s.mode === "magicTarget" || s.mode === "autoload") {
       drawWindow(ctx, 0, 0, 184, 180 + E);
       P.forEach(function(pm, i) {
-        partyPanel(22, 6 + i * sp, pm);
+        partyPanel(22, 6 + i * sp, pm, false, sp, s.mode === "main" ? s : null);
       });
       var MG = menuGeo(E);
       drawWindow(ctx, 184, 0, 72, MG.th);
@@ -37953,6 +37965,12 @@ var Bestiary = (function() {
     var boxH = Math.max(112, spr.height * k + 18);
     ops.push({ t: "sprite", y, h: boxH, k });
     y += boxH + 6;
+    var pcid = typeof CCPhoto !== "undefined" ? CCPhoto.forEnemy(r.id) : null;
+    if (pcid) {
+      var ppw = Math.min(132, cw - 40), pph = Math.round(ppw / 0.93);
+      ops.push({ t: "photo", y, h: pph + 10, pw: ppw, ph: pph, id: pcid });
+      y += pph + 16;
+    }
     var cx = 0;
     function chip(s, col, bg) {
       ops.push({ t: "chip", s, x: IN + cx, y, c: col, bg });
@@ -38431,7 +38449,8 @@ var Bestiary = (function() {
         R(ctx, g.x + 28, ry + 1, 36, 26, "rgba(10,14,40,0.55)");
         R(ctx, g.x + 28, ry + 1, 36, 1, C_L);
         R(ctx, g.x + 28, ry + 26, 36, 1, C_L);
-        ctx.drawImage(thumb(r.id), g.x + 29, ry + 1);
+        var tpc = typeof CCPhoto !== "undefined" ? CCPhoto.forEnemy(r.id) : null;
+        if (!(tpc && CCPhoto.draw(ctx, tpc, g.x + 29, ry + 1, 34, 25, s, { x: g.x + 3, y: v.top, w: g.w - 6, h: v.bot - v.top }, 0.28))) ctx.drawImage(thumb(r.id), g.x + 29, ry + 1);
         drawText(ctx, r.name, g.x + 69, ry + 3, sel ? "#ffffff" : "#c8d0f0");
         drawText(ctx, "Lv" + r.e.lvl + "  PWR " + r.power, g.x + 69, ry + 13, "#a0b0e0");
         if (r.tag) drawText(ctx, r.tag, g.x + g.w - 14 - r.tag.length * 6, ry + 3, r.tag === "BOSS" ? "#ff6a80" : "#ffc040");
@@ -38542,6 +38561,12 @@ var Bestiary = (function() {
         if (op.t === "sprite") {
           if (y + op.h < v.top || y > v.bot) return;
           drawSpriteBox(r, op, ox, y, cw);
+        } else if (op.t === "photo") {
+          if (y + op.h < v.top || y > v.bot) return;
+          var pfx = ox + Math.round((cw - op.pw) / 2);
+          R(ctx, pfx - 5, y, op.pw + 10, op.h, "#05061c");
+          if (!CCPhoto.draw(ctx, op.id, pfx, y + 5, op.pw, op.ph, s, { x: g.x + 3, y: v.top, w: g.w - 6, h: v.bot - v.top }, 0.3)) drawText(ctx, "loading...", pfx + op.pw / 2 - 30, y + op.h / 2 - 4, "#5a628c");
+          frame(pfx - 5, y, op.pw + 10, op.h, r.tag === "BOSS" ? "#ff3050" : r.tag === "RARE" ? "#ffb020" : "#00c8e8");
         } else if (op.t === "panel") {
           if (y + op.h < v.top || y > v.bot) return;
           R(ctx, ox, y, cw, op.h, "rgba(6,10,36,0.55)");
@@ -41233,7 +41258,7 @@ var CrownCards = (function() {
   }, seeded, version: 1 };
 })();
 
-window.CrownCards = CrownCards;
+window.CrownCards = CrownCards; if (typeof CC_PHOTOS !== "undefined") window.CC_PHOTOS = CC_PHOTOS;
 })();
 
 // ---- crown_glue.js ----
@@ -41475,6 +41500,190 @@ var CrownRPG = (function() {
     };
   });
   return { play, openCards, NPCS, offer };
+})();
+
+// ---- cc_portraits.js ----
+var CCPhoto = /* @__PURE__ */ (function() {
+  var NAME = { "nyx": "rhea", "brick": "bram", "cipher": "lio", "sable9": "sable", "scav": "scav", "neighbor": "neighbor", "auntiefen": "fen", "mox": "mox", "bryn": "bryn", "patron": "patron", "vex": "vex", "squatter": "squatter", "techkid": "techkid", "kioskvendor": "kiosk", "dutch": "dutch", "rook": "rook", "rustgrunt": "rkgrunt", "noodlevendor": "noodle", "hawker": "hawker", "bazaardealer": "dealer", "chromesmith": "chrome", "shopper": "shopper", "zed": "zed", "abbot": "abbot", "gardener": "gardener", "helixassociate": "staff", "receptionist": "recep", "maraquill": "mara", "adrianvael": "adrian", "lantern": "lantern", "glitchblob": "slime", "patroldrone": "bat", "gangthug": "wolf", "arcsentry": "wisp", "ganghacker": "toad", "tunnelcrawler": "crawler", "sparkdrone": "sparkbot", "secbotmk1": "golem", "bladeripper": "ripper", "attackwasp": "wasp", "rookshound": "greymaw", "helixsentry": "secbot", "cleanerunit": "cleaner", "helixtrooper": "exo", "helixwarden": "sentinel", "seraphenforcer": "seraph", "hydrawarden": "hydra", "pitbullmech": "boss", "drayala": "ayala", "busker": "busker", "pike": "pike", "mira": "mira", "aldric": "aldric", "odo": "odo", "wren": "wren", "teo": "teo", "intern": "intern", "labdoc": "labdoc", "labtech": "labtech", "campcook": "campcook", "martclerk": "clerk", "armorer": "armorer", "scavenger": "scavenger", "helixguard": "hguard", "researcher": "researcher", "teacher": "teacher", "pigeonkeeper": "keeper", "rooftopwatch": "rwatch", "monk": "monk", "denhacker": "denhk", "passerby": "passerby", "marketkid": "mkkid", "customer": "customer", "pupil": "pupil", "glitchling": "glitchling", "lostmind": "lostmind", "skydrone": "skydrone", "rustkingenforcer": "rustking", "roguehawker": "rhawker", "rooftopper": "rooftopper", "firewall": "firewall", "daemon": "daemon", "helixbulwark": "bulwark", "kestrelswarm": "kestrel", "chorusprime": "chorus", "thefirstsubject": "subject", "rooftopgardener": "skgarden", "latticenoodlevendor": "ltvendor", "lostchild": "ltchild", "latticeghost": "lmghost", "ghostcourier": "courier", "maramerged": "mchorus", "neonpilgrim": "pilgrim", "staticpretender": "pretender", "signalherald": "herald" };
+  var ALIAS = {
+    mara: "mara",
+    adrian: "adrian",
+    adrianvael: "adrian",
+    fen: "fen",
+    ayala: "ayala",
+    drayala: "ayala",
+    keeper: "keeper",
+    sable: "sable",
+    sable9: "sable",
+    bulwark: "bulwark",
+    kestrel: "kestrel",
+    chorus: "chorus",
+    warden: "sentinel",
+    wardenalpha: "sentinel",
+    wardenbeta: "sentinel",
+    wardengamma: "sentinel",
+    hacker: "denhk",
+    kid: "mkkid",
+    rooftopbusker: "busker",
+    rustking: "rustking",
+    cook: "campcook",
+    clerk: "clerk",
+    kioskvendor: "kiosk",
+    bazaardealer: "dealer",
+    chromesmith: "chrome",
+    labdoc: "labdoc",
+    labtech: "labtech",
+    lostmind: "lostmind",
+    techkid: "techkid",
+    noodlevendor: "noodle",
+    helixsentry: "secbot",
+    subject: "subject",
+    thefirstsubject: "subject"
+  };
+  var ENEMY = { pitbull: "boss", aegis: "adrian", hawker: "rhawker" };
+  var cache = {};
+  function norm(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+  function data() {
+    return typeof window !== "undefined" && window.CC_PHOTOS || (typeof CC_PHOTOS !== "undefined" ? CC_PHOTOS : null);
+  }
+  function has(id) {
+    var d = data();
+    return !!(id && d && d[id]);
+  }
+  function img(id) {
+    if (!has(id)) return null;
+    var c = cache[id];
+    if (!c) {
+      c = cache[id] = new Image();
+      c.decoding = "async";
+      c.src = data()[id];
+    }
+    return c.complete && c.naturalWidth ? c : null;
+  }
+  function forSpeaker(who) {
+    var k = norm(who);
+    var id = ALIAS[k] || NAME[k];
+    return has(id) ? id : null;
+  }
+  function forEnemy(id) {
+    var c = ENEMY[id] || id;
+    return has(c) ? c : null;
+  }
+  function forChar(id) {
+    return has(id) ? id : null;
+  }
+  function draw(g, id, x, y, w, h, scene, clip, fy) {
+    var im = img(id);
+    if (!im) return false;
+    var iw = im.naturalWidth, ih = im.naturalHeight, k = Math.max(w / iw, h / ih), sw = w / k, sh = h / k, sx = (iw - sw) / 2, sy = (ih - sh) * (fy === void 0 ? 0.5 : fy);
+    var was = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = true;
+    try {
+      g.imageSmoothingQuality = "high";
+    } catch (e) {
+    }
+    g.drawImage(im, sx, sy, sw, sh, x, y, w, h);
+    g.imageSmoothingEnabled = was;
+    if (scene && g === ctx) PhotoLayer.put(id, x, y, w, h, scene, clip, fy);
+    return true;
+  }
+  return {
+    has,
+    img,
+    draw,
+    forSpeaker,
+    forEnemy,
+    forChar,
+    NAME,
+    ALIAS,
+    ENEMY,
+    preload: function(ids) {
+      (ids || []).forEach(function(i) {
+        img(i);
+      });
+    }
+  };
+})();
+var PhotoLayer = (function() {
+  var L = { on: true, pool: [], used: 0, root: null, shown: 0 };
+  function root() {
+    if (L.root || typeof document === "undefined") return L.root;
+    var st = document.getElementById("stage") || document.body;
+    if (!st) return null;
+    var d = document.createElement("div");
+    d.id = "photoLayer";
+    d.setAttribute("aria-hidden", "true");
+    d.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;z-index:2;line-height:0";
+    st.appendChild(d);
+    return L.root = d;
+  }
+  L.begin = function() {
+    L.used = 0;
+  };
+  L.put = function(id, x, y, w, h, scene, clip, fy) {
+    if (!L.on || scene !== topScene() || typeof fade !== "undefined" && fade.a > 0.05) return;
+    var r0 = root();
+    if (!r0 || !canvas) return;
+    var e = L.pool[L.used];
+    if (!e) {
+      e = document.createElement("img");
+      e.alt = "";
+      e.draggable = false;
+      e.style.cssText = "position:absolute;display:none;object-fit:cover;pointer-events:none;image-rendering:auto";
+      r0.appendChild(e);
+      L.pool.push(e);
+    }
+    L.used++;
+    var sx = canvas.clientWidth / W, sy = canvas.clientHeight / H, ox = canvas.offsetLeft, oy = canvas.offsetTop, s = CC_PHOTOS_SRC(id);
+    if (e.__id !== id) {
+      e.src = s;
+      e.__id = id;
+    }
+    e.style.left = ox + x * sx + "px";
+    e.style.top = oy + y * sy + "px";
+    e.style.width = w * sx + "px";
+    e.style.height = h * sy + "px";
+    e.style.objectPosition = "50% " + Math.round((fy === void 0 ? 0.5 : fy) * 100) + "%";
+    if (clip) {
+      var t = Math.max(0, clip.y - y) * sy, b = Math.max(0, y + h - (clip.y + clip.h)) * sy, l = Math.max(0, clip.x - x) * sx, rr = Math.max(0, x + w - (clip.x + clip.w)) * sx;
+      e.style.clipPath = "inset(" + t + "px " + rr + "px " + b + "px " + l + "px)";
+    } else e.style.clipPath = "";
+    e.style.display = "block";
+  };
+  L.end = function() {
+    for (var i = L.used; i < L.pool.length; i++) if (L.pool[i].style.display !== "none") L.pool[i].style.display = "none";
+    L.shown = L.used;
+  };
+  L.visible = function() {
+    return L.pool.filter(function(e) {
+      return e.style.display !== "none";
+    }).map(function(e) {
+      return e.__id;
+    });
+  };
+  return L;
+})();
+function CC_PHOTOS_SRC(id) {
+  var d = typeof window !== "undefined" && window.CC_PHOTOS || null;
+  return d && d[id] || "";
+}
+(function() {
+  if (typeof present !== "function") return;
+  var _p = present;
+  present = function() {
+    PhotoLayer.begin();
+    try {
+      _p.apply(this, arguments);
+    } finally {
+      PhotoLayer.end();
+    }
+  };
+  try {
+    CCPhoto.preload(["rhea", "bram", "lio", "sable"]);
+  } catch (e) {
+  }
 })();
 
 // ---- main.js ----

@@ -43391,6 +43391,7 @@ var CCSableCompass = (function() {
   }
   function draw() {
     try {
+      if (typeof MainMission !== "undefined" && MainMission) return;
       if (typeof field === "undefined" || !field) return;
       if (typeof topScene === "function" && topScene() && topScene().name !== "field") return;
       if (typeof scenes !== "undefined" && scenes.length > 1) return;

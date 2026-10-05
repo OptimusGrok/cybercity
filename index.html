@@ -265,7 +265,8 @@ var CORE = (function () {
   function newSave() {
     return {
       v: 1,
-      party: [newMember('rhea'), newMember('bram'), newMember('lio')],   // Nyx, Brick, Cipher
+      // Act I (STORY.md / PLAYTEST B.3): Nyx + Cipher start; Brick joins after yard mid-boss. Preserve gateNeedsRook (Rook-lock).
+      party: [newMember('rhea'), newMember('lio')],   // Nyx, Cipher
       inv: { tonic: 7, tea: 2, feather: 1 },
       gold: 200, flags: { gateNeedsRook: true }, feral: ['slime', 'wolf'],
       map: 'town', x: 35, y: 35, dir: 1, steps: 0, time: 0
@@ -8809,7 +8810,7 @@ function beginAdventure() {
       yield say(
         "Nyx: Eleven days. Ayala says his chip is still warm. Warm, like it is working on something.",
         "Cipher: Helix says LANTERN's signal bounces off the Underline. So we start by asking around the Gutters.",
-        "Brick: I know these streets. The Rust Kings hold the east end, and Helix drones sweep the alleys. Keep your head down.",
+        "Cipher: Vex at the Neon Lotus might know more. I'll take the booth if you need a minute.",
         "Nyx: Teo, I am going to wake you up. I promise.",
         document.body.classList.contains("touch") ? "(Tap where you want to go. Tap a person, door or chest to go there. Tap MENU to open the menu.)" : "(Arrows/WASD to move. Z/Enter/A to talk. X/Esc/B opens the menu. Or click where you want to go.)"
       );
@@ -21762,14 +21763,29 @@ var Levels = (function() {
         return m.id === "sable";
       });
     };
+    var hasId = function(id) {
+      return G.party.some(function(m) {
+        return m.id === id;
+      });
+    };
+    var avgLv = function() {
+      return Math.max(1, Math.round(G.party.reduce(function(a, m) {
+        return a + m.lvl;
+      }, 0) / Math.max(1, G.party.length)));
+    };
+    if (d.id !== "town" && d.map !== "town") {
+      if (!hasId("lio")) G.party.push(CORE.newMember("lio", Math.max(d.lv, avgLv())));
+      if (!hasId("bram")) {
+        G.party.push(CORE.newMember("bram", Math.max(d.lv, avgLv())));
+        f.brickJoined = true;
+      }
+    }
     if (f.sableFreed && G.sableStash) {
       if (!hasS()) G.party.push(G.sableStash);
       G.sableStash = null;
     }
     if (d.sable && !hasS() && !(f.sableTaken && !f.sableFreed)) {
-      var avg = Math.round(G.party.reduce(function(a, m) {
-        return a + m.lvl;
-      }, 0) / G.party.length);
+      var avg = avgLv();
       G.party.push(CORE.newMember("sable", Math.max(d.lv, avg)));
       f.sable = true;
     }
@@ -31405,6 +31421,34 @@ var CCST = (function() {
     e.atk = Math.round(e.atk * 1.2);
     e.mag = Math.round(e.mag * 1.2);
   });
+  E.brick = {
+    name: "Brick",
+    lvl: 5,
+    mhp: 480,
+    atk: 15,
+    mag: 4,
+    def: 11,
+    mdef: 6,
+    spd: 10,
+    xp: 0,
+    gold: 0,
+    weak: ["bolt"],
+    resist: [],
+    absorb: [],
+    steal: "hitonic",
+    drop: null,
+    dropRate: 0,
+    boss: true,
+    phases: [0.45],
+    pats: [["bk_fist", "bk_guard", "bk_charge", "bk_slam"], ["bk_slam", "bk_fist", "bk_flurry", "bk_charge", "bk_slam"]],
+    phaseMsg: ['Brick: "Overdrive\u2014! Stay down!"'],
+    skills: []
+  };
+  BS.bk_fist = { name: "Plasma Fist", type: "phys", mult: 1.25 };
+  BS.bk_guard = { name: "Guard Stance", type: "buffSelf", fx: "shield", dur: 10 };
+  BS.bk_charge = { name: "Overdrive Wind-up", type: "charge", msg: "Brick winds up an Overdrive \u2014 plasma arm glowing red!" };
+  BS.bk_slam = { name: "Piston Slam", type: "phys", mult: 1.55 };
+  BS.bk_flurry = { name: "Overdrive Burst", type: "physAll", mult: 0.8 };
   E.pitbull = {
     name: "Pit Bull Mech",
     lvl: 7,
@@ -31467,6 +31511,12 @@ var CCST = (function() {
   E.bulwark.atk = 28;
   E.pitbull.mhp = 900;
   F.yard = [["rustking"], ["rustking", "wolf"], ["wolf", "wolf", "bat"], ["rustking", "rustking"], ["wolf", "toad"]];
+  (function() {
+    var prev = enemySprite;
+    enemySprite = function(id, frame) {
+      return prev(id === "brick" ? "wolf" : id, frame);
+    };
+  })();
   F.ug1 = [["crawler", "crawler"], ["bat", "bat", "crawler"], ["glitchling"], ["rustking", "crawler"], ["sparkbot", "bat"], ["golem"], ["glitchling", "crawler"], ["crawler", "sparkbot"]];
   F.ug2 = [["golem", "sparkbot"], ["glitchling", "glitchling"], ["rustking", "ripper"], ["wisp", "sparkbot", "crawler"], ["golem", "rustking"], ["ripper"], ["sentinel"]];
   F.mkt = [["hawker", "ripper"], ["hawker", "hawker", "sparkbot"], ["glitchling", "ripper"], ["sentinel"], ["ripper", "ripper"], ["hawker", "toad"], ["hawker", "glitchling"]];
@@ -35410,10 +35460,42 @@ var __async = (__this, __arguments, generator) => {
   TALK.rook = function() {
     return SCRIPTS.rookIntro();
   };
+  SCRIPTS.brickJoin = function() {
+    return __async(this, null, function* () {
+      var f = flags();
+      if (party("bram") || f.brickJoined) return SCRIPTS.rookIntro();
+      f.brickJoined = true;
+      var lv = Math.max(4, Math.round(G.party.reduce(function(a, m) {
+        return a + m.lvl;
+      }, 0) / G.party.length));
+      G.party.push(CORE.newMember("bram", lv));
+      Audio8.sfx("levelup");
+      yield say(
+        "Brick: ...I carried kids into those clinics. Helix stamped this arm and called it mercy.",
+        "Brick: I am done being their muscle. If you are going after the hatch key, I am coming.",
+        "Brick joined the party!",
+        "(Brick's Overdrive command: arrow combos. Watch his wind-up \u2014 he telegraphs heavy hits.)"
+      );
+      healParty();
+      return SCRIPTS.rookIntro();
+    });
+  };
   SCRIPTS.rookIntro = function() {
     return __async(this, null, function* () {
       var f = flags();
       if (f.rook) return;
+      if (!party("bram") && !f.brickJoined) {
+        Audio8.stop();
+        Audio8.sfx("boss");
+        yield say(
+          "Rook: Courier. And the little Helix rat. Cute.",
+          "Rook: BRICK! Earn your keep. Soften them up.",
+          "A heavy with a plasma-forged arm steps out of the scrap shade. Helix paint still shows under the gang tags.",
+          "Cipher: That's Brick Haldane. Ex-Helix enforcer. Watch the Overdrive wind-up \u2014 he telegraphs it."
+        );
+        startBattle(["brick"], "gutters", { boss: true, music: "rook", onWin: SCRIPTS.brickJoin });
+        return;
+      }
       Audio8.stop();
       Audio8.sfx("boss");
       yield say(
@@ -36043,6 +36125,16 @@ var __async = (__this, __arguments, generator) => {
   });
   TALK.inn = function(n) {
     return __async(this, null, function* () {
+      var f = flags();
+      if (!f.cipherIntro) {
+        f.cipherIntro = true;
+        yield say(
+          "Vex: Nyx. Still chasing ghosts for Mara?",
+          "Vex: Booth in the corner is Cipher. Ex-Helix. He reads machines the way you read alley walls.",
+          "Cipher: Already on the payroll, Vex. Mostly.",
+          "Vex: Then drink the bad coffee and try not to die. The Kings still own the east gate."
+        );
+      }
       var q = QUEST_BY_ID.static, st = Quest.state(q);
       if (st === "ready") {
         yield say.apply(null, q.ready);
@@ -43869,7 +43961,7 @@ var CCTeoShards = (function() {
     flags()[STARTED] = true;
     syncSteps();
     try {
-      if (Quest.toast) Quest.toast("New quest: Saffron's Pieces (0/3)");
+      if (Quest.toast) Quest.toast("New quest: Saffron's Pieces (" + shardN() + "/3)");
     } catch (e) {
     }
     try {
@@ -44002,15 +44094,15 @@ var CCTeoShards = (function() {
         syncSteps();
         softComplete();
         var n = shardN(), on = !!(G && G.quests && G.quests[QID]);
-        var label = on ? "Saffron's Pieces " + n + "/3" : "Memory Shards " + n + "/3";
+        var label = on ? "Pieces " + n + "/3" : "Memory " + n + "/3";
         var col = n >= 3 ? "#8cf070" : n > 0 ? "#ffe080" : "#a0c8ff";
         try {
           if (typeof drawText === "function") {
-            drawText(ctx, "*", 16, 202, n > 0 ? "#ffb0ff" : "#5a628c");
-            drawText(ctx, label, 26, 202, col);
+            R(ctx, 140, 22, 110, 24, "rgba(8,10,32,0.85)");
+            drawText(ctx, "*", 144, 26, n > 0 ? "#ffb0ff" : "#5a628c");
+            drawText(ctx, label, 154, 26, col);
             var f = flags();
-            if (f.lanternCleansed) drawText(ctx, "LANTERN: Ally", 168, 202, "#7af0ff");
-            else if (f.lanternAlly) drawText(ctx, "LANTERN: Ally", 168, 202, "#7af0ff");
+            if (f.lanternCleansed || f.lanternAlly) drawText(ctx, "LANTERN: Ally", 144, 36, "#7af0ff");
           }
         } catch (e) {
         }
@@ -44059,10 +44151,170 @@ var CCTeoShards = (function() {
     syncSteps,
     softComplete,
     install,
-    installClinic
+    installClinic,
+    musicBox,
+    tellStakesOnce
   };
 })();
 window.CCTeoShards = CCTeoShards;
+
+// ---- cc_finale_return.js ----
+var __async = (__this, __arguments, generator) => {
+  return new Promise((resolve, reject) => {
+    var fulfilled = (value) => {
+      try {
+        step(generator.next(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var rejected = (value) => {
+      try {
+        step(generator.throw(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+    step((generator = generator.apply(__this, __arguments)).next());
+  });
+};
+(function() {
+  if (typeof SCRIPTS === "undefined" || !SCRIPTS.chorusWon || SCRIPTS.__finaleReturn) return;
+  SCRIPTS.__finaleReturn = true;
+  function flags() {
+    return G && G.flags || {};
+  }
+  function shardCount() {
+    if (typeof CCTeoShards !== "undefined" && typeof CCTeoShards.shardN === "function") return CCTeoShards.shardN();
+    var f = flags();
+    return (f.spot_shard1 ? 1 : 0) + (f.spot_shard2 ? 1 : 0) + (f.spot_shard3 ? 1 : 0);
+  }
+  function isWhole() {
+    var f = flags();
+    return !!(f.lanternCleansed && shardCount() >= 3);
+  }
+  function openTransitHome() {
+    return __async(this, null, function* () {
+      var f = flags();
+      try {
+        if (window.CC3 && CC3.syncTransitLocks) CC3.syncTransitLocks();
+      } catch (e) {
+      }
+      f.tr_gutters = true;
+      f.tr_skyline = true;
+      try {
+        if (window.CC3 && CC3.unlockTransit) CC3.unlockTransit("skyline");
+      } catch (e) {
+      }
+      f.finaleTransitOffered = true;
+      yield say(
+        "LANTERN: The city is still open to you. Gather the missing pieces \u2014 music box, drawing, voice \u2014 then return to the Array.",
+        "Nyx: Transit. We go back. Teo can wait a little longer for the right key."
+      );
+      try {
+        if (typeof CCTeoShards !== "undefined") {
+          try {
+            CCTeoShards.maybeStart();
+          } catch (e2) {
+          }
+          if (typeof Quest !== "undefined" && Quest.toast) {
+            Quest.toast("Saffron's Pieces: " + shardCount() + "/3 \u2014 find the shards, then return to the Array");
+          }
+        } else if (typeof Quest !== "undefined" && Quest.toast) {
+          Quest.toast("Memory Shards " + shardCount() + "/3 for the seed key. Return to the Array when ready.");
+        }
+      } catch (e) {
+      }
+      var dest = yield new Promise(function(r) {
+        pushScene(TransitScene("skyline", r));
+      });
+      if (!dest) return false;
+      if (window.CC3 && CC3.toMap) yield CC3.toMap(dest.map, dest.x, dest.y, dest.dir);
+      else {
+        Audio8.sfx("door");
+        yield fadeTo(1, 300);
+        loadMap(dest.map, dest.x, dest.y, dest.dir);
+        yield fadeTo(0, 300);
+      }
+      return true;
+    });
+  }
+  function endingChoice() {
+    return __async(this, null, function* () {
+      var f = flags();
+      for (; ; ) {
+        var whole = isWhole();
+        if (whole) f.sableWhole = true;
+        var opts = whole ? ["Free them with Saffron's seed key", "Destroy the array by force"] : ["Free them with Saffron's seed key", "Destroy the array by force", "Return to Vesper (Transit)"];
+        var c = yield ask("How does this end?", opts);
+        if (c === 0) {
+          if (!whole) {
+            yield say(
+              "Sable-9 steps to the core and lifts her hand. The seed key gutters and goes dark.",
+              "Sable-9: I cannot. There are pieces of me missing. The key needs all of me. All of Saffron, and all of Sable.",
+              "LANTERN: The Memory Shards were the pieces: the music box, the drawing, the recording. Without them the key will not open the gate."
+            );
+            continue;
+          }
+          yield window.endGame("true");
+          return;
+        }
+        if (c === 1) {
+          yield say('Brick raises the Aegis Gauntlet. Cipher floods the core with the Mercy spec, reversed. LANTERN: "It is the only way. Hold on to each other."');
+          yield window.endGame("good");
+          return;
+        }
+        if (!whole && c === 2) {
+          var left = yield openTransitHome();
+          if (left) return;
+          continue;
+        }
+      }
+    });
+  }
+  SCRIPTS.chorusWon = function() {
+    return __async(this, null, function* () {
+      var f = flags();
+      f.maraDown = true;
+      f.finaleChoiceOpen = true;
+      try {
+        if (typeof Cov !== "undefined" && Cov.mark) Cov.mark("misc", "chorus");
+      } catch (e) {
+      }
+      Audio8.play("array");
+      yield say(
+        "The column shudders and dims. The voices fall to a murmur. Mara drops to her knees at its base, the black coat in rags, eyes wide and human.",
+        "Mara: ...so many. They are all so frightened. I only wanted none of them to be left behind."
+      );
+      if (isWhole()) f.sableWhole = true;
+      yield say("The array is open. Everything Chorus holds is waiting on a single choice.");
+      yield endingChoice();
+    });
+  };
+  var _confront = SCRIPTS.maraConfront;
+  SCRIPTS.maraConfront = function() {
+    return __async(this, arguments, function* () {
+      var f = flags();
+      if (f.maraDown) {
+        if (f.ending) return;
+        yield say("The array still waits. Chorus is quiet. The choice is still yours.");
+        yield endingChoice();
+        return;
+      }
+      return _confront.apply(this, arguments);
+    });
+  };
+  TALK.mara2 = function() {
+    return SCRIPTS.maraConfront();
+  };
+  window.CCFinaleReturn = {
+    shardCount,
+    isWhole,
+    endingChoice,
+    openTransitHome
+  };
+})();
 
 // ---- main.js ----
 var last = 0;

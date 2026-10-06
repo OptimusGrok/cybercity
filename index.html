@@ -28,7 +28,7 @@ body.touch #controls > *{pointer-events:auto}
 body.touch #wrap{flex:1 1 auto;min-height:0;margin-top:0}
 .grp{margin-left:auto;display:flex;align-items:center;gap:14px;pointer-events:none}
 .grp > *{pointer-events:auto}
-.small{position:relative;border-radius:0;background:linear-gradient(#ff2bd6,#ff2bd6) 2px 2px/3px 3px no-repeat,linear-gradient(#ff2bd6,#ff2bd6) calc(100% - 2px) 2px/3px 3px no-repeat,linear-gradient(#ff2bd6,#ff2bd6) 2px calc(100% - 2px)/3px 3px no-repeat,linear-gradient(#ff2bd6,#ff2bd6) calc(100% - 2px) calc(100% - 2px)/3px 3px no-repeat,#1a1058;color:#c8fcff;border:2px solid #00f0ff;box-shadow:0 2px 0 #101020;-webkit-font-smoothing:none;text-rendering:optimizeSpeed;font:bold 9px monospace;padding:6px 9px;touch-action:none;user-select:none;-webkit-user-select:none}
+.small{position:relative;border-radius:7px;background:rgba(4,12,26,.85);color:#c8fdff;border:2px solid #22e6ff;box-shadow:0 0 7px rgba(34,230,255,.75),inset 0 0 5px rgba(34,230,255,.35);text-shadow:0 0 4px #22e6ff,0 0 1px #22e6ff;-webkit-font-smoothing:none;text-rendering:optimizeSpeed;font:bold 9px monospace;padding:6px 9px;touch-action:none;user-select:none;-webkit-user-select:none}
 .small:after{content:"";position:absolute;left:-6px;right:-6px;top:-12px;bottom:-12px}
 .small.on{filter:brightness(1.6)}
 @media (orientation:landscape){
@@ -8572,9 +8572,11 @@ function FieldScene() {
     }
     if (f.panned()) {
       var rb = f.recBtn;
-      drawWindow(ctx, rb.x, rb.y, rb.w, rb.h);
-      drawText(ctx, "Re-", rb.x + 17, rb.y + 6, "#f8e080");
-      drawText(ctx, "centre", rb.x + 8, rb.y + 16, "#f8e080");
+      if (typeof CCGS !== "undefined" && CCGS.neonBtn) CCGS.neonBtn(ctx, rb.x, rb.y, rb.w, rb.h);
+      else drawWindow(ctx, rb.x, rb.y, rb.w, rb.h);
+      var rc = typeof CCGS !== "undefined" && CCGS.neonBtn ? "#bffcff" : "#f8e080";
+      drawText(ctx, "Re-", rb.x + 17, rb.y + 6, rc);
+      drawText(ctx, "centre", rb.x + 8, rb.y + 16, rc);
     }
     if (f.bannerT > 0) {
       var bw = textWidth(f.banner) + 20;
@@ -37747,6 +37749,807 @@ var CCGate = (function() {
   }
   return G_;
 })();
+
+// ---- cc_gutters_skin.js ----
+var CCGS = (function() {
+  var S = { on: true, sprites: true, fp: false };
+  function hs(a, b) {
+    var h = a * 374761393 + b * 668265263 | 0;
+    h = (h ^ h >>> 13) * 1274126177 | 0;
+    return ((h ^ h >>> 16) >>> 0) / 4294967296;
+  }
+  function P(g, x, y, w, h, c) {
+    g.fillStyle = c;
+    g.fillRect(x, y, w, h);
+  }
+  var gimg = CCFX.gimg;
+  var C = {
+    mort: "#1c1b22",
+    br: ["#3b3a45", "#37363f", "#41404b", "#34333d", "#3e3d48"],
+    curbD: "#121117",
+    curbL: "#4c4b56",
+    gr: ["#33323b", "#302f38", "#36353f"],
+    grSp: ["#29282f", "#3d3c46", "#2c2b33", "#393842"],
+    crack: "#18171d",
+    crackL: "#45444f",
+    wall: "#26242f",
+    wallL: "#363442",
+    wallD: "#16151c",
+    brick: "#1f1d27",
+    neon: ["#22e6ff", "#ff3cd8", "#a05cff", "#2affc8", "#3a8cff", "#22e6ff", "#c070ff"],
+    warm: "#ffa040",
+    warmC: "#ffe2a8",
+    amber: "#ffb347",
+    crys: ["#a070ff", "#5a8cff", "#c080ff"]
+  };
+  var ROOF = {
+    // base, panel line, highlight, rim, dark eave
+    roofm: ["#45345c", "#2e2240", "#58457a", "#6e5a92", "#1d1626"],
+    roofb: ["#2a4558", "#1b2d3a", "#38596e", "#4a7894", "#141c24"],
+    roofs: ["#323650", "#22253a", "#424866", "#545c80", "#18191f"]
+  };
+  var SHOP = { wall: 1, window: 1, door: 1, signinn: 1, signshop: 1, signarms: 1, jshut: 1, rkbanner: 0 };
+  var STREET = { cobble: 1, gateop: 1, gatefl: 1, jhatch: 1, termst: 1 };
+  var MTL = { mtlA: 1, mtlB: 1, mtlC: 1, mtlF: 1, mtlL: 1, mtlG: 1, mtlR: 1, mtlH: 1, mtlO: 1 };
+  var KEYED = { jcrate: 1, jdrum: 1, jtire: 1, jgrate: 1, jcarl: 1, jcarr: 1, bush: 1, well: 1, payphone: 1, musicbox: 1, termst: 1, jhatch: 1 };
+  var KEYCOL = {};
+  ["#1a1d2b", "#151826", "#20243a", "#262b44", "#11131f", "#2a2e44", "#252940", "#31365a", "#1b1e30", "#3a4070", "#343a66", "#4a5290", "#0c0e18", "#33395c"].forEach(function(c) {
+    var r = hexToRgb(c);
+    KEYCOL[r[0] << 16 | r[1] << 8 | r[2]] = 1;
+  });
+  var keyC = {};
+  function keyed(t, k) {
+    var ck = t + k;
+    if (keyC[ck]) return keyC[ck];
+    var src = tileImg(t, k), c = mkCanvas(16, 16, true), g = c.getContext("2d");
+    g.drawImage(src, 0, 0);
+    var im = g.getImageData(0, 0, 16, 16), d = im.data;
+    for (var i = 0; i < d.length; i += 4) if (KEYCOL[d[i] << 16 | d[i + 1] << 8 | d[i + 2]]) d[i + 3] = 0;
+    g.putImageData(im, 0, 0);
+    return keyC[ck] = c;
+  }
+  function ground(g, X, Y, x, y) {
+    P(g, X, Y, 16, 16, C.gr[Math.floor(hs(x, y) * 3)]);
+    var r = srand(x * 92821 + y * 68917 >>> 0), i;
+    for (i = 0; i < 12; i++) P(g, X + Math.floor(r() * 16), Y + Math.floor(r() * 16), 1, 1, C.grSp[Math.floor(r() * 4)]);
+    if (r() > 0.25) {
+      var px = Math.floor(r() * 12) + 2, py = Math.floor(r() * 12) + 2, dx = r() > 0.5 ? 1 : -1, n = 6 + Math.floor(r() * 9);
+      for (i = 0; i < n; i++) {
+        P(g, X + px, Y + py, 1, 1, C.crack);
+        if (r() > 0.5) P(g, X + px + 1, Y + py, 1, 1, C.crackL);
+        if (r() > 0.4) py++;
+        if (r() > 0.45) px += dx;
+        if (r() > 0.85) dx = -dx;
+        if (px < 0 || px > 15 || py > 15) break;
+        if (r() > 0.88) {
+          P(g, X + px - dx, Y + py + 1, 1, 1, C.crack);
+          P(g, X + px - 2 * dx, Y + py + 2, 1, 1, C.crack);
+        }
+      }
+    }
+    if (r() > 0.8) {
+      P(g, X + 3 + Math.floor(r() * 8), Y + 3 + Math.floor(r() * 8), 4, 2, "rgba(10,10,16,0.35)");
+    }
+    if (r() > 0.7) {
+      var sx = X + Math.floor(r() * 13), sy = Y + Math.floor(r() * 13);
+      P(g, sx, sy, 2, 1, "#45444e");
+      P(g, sx, sy + 1, 2, 1, "#22212a");
+    }
+  }
+  function crystal(g, X, Y, x, y, L) {
+    var h = hs(x + 31, y + 17), c = C.crys[Math.floor(h * 3)], cx = X + 4 + Math.floor(hs(x, y + 9) * 8), cy = Y + 5 + Math.floor(hs(x + 4, y) * 7);
+    P(g, cx - 2, cy + 4, 6, 1, "rgba(0,0,0,0.45)");
+    P(g, cx, cy, 2, 5, c);
+    P(g, cx, cy - 1, 1, 1, c);
+    P(g, cx, cy, 1, 4, "#ece0ff");
+    P(g, cx - 2, cy + 2, 2, 3, shade(c, 0.75));
+    P(g, cx - 2, cy + 1, 1, 1, shade(c, 0.75));
+    P(g, cx + 2, cy + 3, 2, 2, shade(c, 0.6));
+    P(g, cx + 3, cy + 2, 1, 1, shade(c, 0.6));
+    L.push({ x: cx + 1, y: cy + 2, col: c, r: 18, a: 0.6, k: "crys", s: h, b: 1 });
+  }
+  function street(g, X, Y, x, y, at) {
+    P(g, X, Y, 16, 16, C.mort);
+    for (var row = 0; row < 4; row++) {
+      var wr = y * 4 + row, off = wr & 1 ? 4 : 0, yy = Y + row * 4;
+      for (var bx = -off; bx < 16; bx += 8) {
+        var bi = Math.floor((x * 16 + bx + off) / 8), c = C.br[Math.floor(hs(bi * 3 + 1, wr * 7 + 2) * 5)], a = Math.max(bx, 0), b = Math.min(bx + 7, 16);
+        if (b <= a) continue;
+        P(g, X + a, yy, b - a, 3, c);
+        P(g, X + a, yy, b - a, 1, shade(c, 1.14));
+        if (bx + 6 < 16 && bx + 6 >= 0) P(g, X + bx + 6, yy + 1, 1, 2, shade(c, 0.8));
+        if (hs(bi, wr) > 0.8) P(g, X + a + 2, yy + 1, 2, 1, shade(c, 0.78));
+      }
+    }
+    var st = function(t) {
+      return t && STREET[t];
+    };
+    if (!st(at(x, y - 1))) {
+      P(g, X, Y, 16, 1, C.curbD);
+      P(g, X, Y + 1, 16, 1, C.curbL);
+    }
+    if (!st(at(x, y + 1))) {
+      P(g, X, Y + 14, 16, 1, C.curbL);
+      P(g, X, Y + 15, 16, 1, C.curbD);
+    }
+    if (!st(at(x - 1, y))) {
+      P(g, X, Y, 1, 16, C.curbD);
+      P(g, X + 1, Y, 1, 16, C.curbL);
+    }
+    if (!st(at(x + 1, y))) {
+      P(g, X + 14, Y, 1, 16, C.curbL);
+      P(g, X + 15, Y, 1, 16, C.curbD);
+    }
+  }
+  function roof(g, X, Y, x, y, t, at, L) {
+    var c = ROOF[t], up = at(x, y - 1) === t, dn = at(x, y + 1) === t, lf = at(x - 1, y) === t, rt = at(x + 1, y) === t, row, i;
+    P(g, X, Y, 16, 16, c[0]);
+    for (row = 0; row < 4; row++) for (i = 0; i < 4; i++) {
+      var hv = hs(x * 4 + i + 7, y * 4 + row + 3), tc = hv > 0.8 ? shade(c[0], 1.16) : hv < 0.15 ? shade(c[0], 0.88) : c[0];
+      P(g, X + i * 4, Y + row * 4, 3, 3, tc);
+      P(g, X + i * 4, Y + row * 4, 3, 1, shade(tc, 1.12));
+      P(g, X + i * 4 + 3, Y + row * 4, 1, 4, c[1]);
+      P(g, X + i * 4, Y + row * 4 + 3, 4, 1, c[1]);
+    }
+    if (up && dn && lf && rt && hs(x * 5 + 1, y * 3 + 2) > 0.84) {
+      P(g, X + 3, Y + 4, 9, 7, c[4]);
+      P(g, X + 3, Y + 3, 9, 7, c[2]);
+      P(g, X + 3, Y + 3, 9, 1, c[3]);
+      P(g, X + 5, Y + 5, 5, 3, c[4]);
+      for (i = 0; i < 3; i++) P(g, X + 5, Y + 5 + i, 5, 1, i % 2 ? c[1] : c[4]);
+      P(g, X + 10, Y + 4, 1, 1, hs(x, y) > 0.5 ? "#ff3050" : "#39ff88");
+    }
+    if (!up) {
+      P(g, X, Y, 16, 2, c[3]);
+      P(g, X, Y, 16, 1, shade(c[3], 1.25));
+    }
+    if (!lf) {
+      P(g, X, Y, 2, 16, c[3]);
+      P(g, X, Y, 1, 16, shade(c[3], 1.2));
+    }
+    if (!rt) {
+      P(g, X + 14, Y, 2, 16, c[4]);
+      P(g, X + 13, Y, 1, 16, shade(c[0], 0.85));
+    }
+    if (!dn) {
+      P(g, X, Y + 13, 16, 3, c[4]);
+      P(g, X, Y + 12, 16, 1, shade(c[3], 0.9));
+    }
+  }
+  function shopWall(g, X, Y, x, y) {
+    P(g, X, Y, 16, 16, C.wall);
+    for (var r = 0; r < 4; r++) {
+      P(g, X, Y + 3 + r * 3, 16, 1, C.brick);
+      var o = r & 1 ? 0 : 4;
+      for (var i = o; i < 16; i += 8) P(g, X + i, Y + 3 + r * 3 - 2, 1, 2, C.brick);
+    }
+    P(g, X, Y, 16, 2, C.wallL);
+    P(g, X, Y, 16, 1, shade(C.wallL, 1.2));
+    P(g, X, Y + 2, 16, 1, C.wallD);
+    P(g, X, Y + 14, 16, 2, C.wallD);
+    P(g, X, Y + 13, 16, 1, "#2e2c38");
+  }
+  function lantern(g, X, Y, lx, ly, L, s) {
+    P(g, X + lx - 1, Y + ly - 2, 4, 1, "#14131a");
+    P(g, X + lx, Y + ly - 1, 2, 1, "#2a2830");
+    P(g, X + lx - 1, Y + ly, 4, 4, "#3a2a1c");
+    P(g, X + lx, Y + ly, 2, 3, C.warm);
+    P(g, X + lx, Y + ly + 1, 1, 1, C.warmC);
+    P(g, X + lx - 1, Y + ly + 4, 4, 1, "#14131a");
+    L.push({ x: X + lx + 1, y: Y + ly + 2, col: "#ff9a3a", r: 26, a: 0.7, k: "torch", s, b: 1 });
+  }
+  function winCol(x, y) {
+    return C.neon[Math.floor(hs(x * 7 + 1, y * 13 + 5) * C.neon.length)];
+  }
+  function windowT(g, X, Y, x, y, L) {
+    shopWall(g, X, Y, x, y);
+    var c = winCol(x, y), dim = mix(c, "#05060c", 0.55);
+    P(g, X + 2, Y + 3, 12, 10, "#121118");
+    P(g, X + 3, Y + 4, 10, 8, dim);
+    P(g, X + 3, Y + 4, 10, 4, mix(c, "#05060c", 0.2));
+    P(g, X + 3, Y + 4, 10, 1, mix(c, "#ffffff", 0.45));
+    P(g, X + 8, Y + 4, 1, 8, "#121118");
+    P(g, X + 3, Y + 8, 10, 1, "#121118");
+    if (hs(x + 2, y + 9) > 0.55) {
+      P(g, X + 4, Y + 9, 3, 2, mix(c, "#05060c", 0.75));
+      P(g, X + 10, Y + 9, 2, 3, mix(c, "#05060c", 0.7));
+    }
+    P(g, X + 2, Y + 13, 12, 1, "#3c3a48");
+    P(g, X + 3, Y + 15, 10, 1, mix(c, "#05060c", 0.4));
+    L.push({ x: X + 8, y: Y + 8, col: c, r: 14, a: 0.55, k: "win", s: hs(x, y), b: 1 });
+    L.push({ x: X + 8, y: Y + 22, col: c, r: 24, a: 0.42, k: "spill", s: 0, b: 1 });
+  }
+  function shutter(g, X, Y, x, y) {
+    shopWall(g, X, Y, x, y);
+    P(g, X + 2, Y + 3, 12, 11, "#1a1920");
+    for (var i = 0; i < 5; i++) {
+      P(g, X + 2, Y + 4 + i * 2, 12, 1, "#2f2d39");
+      P(g, X + 2, Y + 5 + i * 2, 12, 1, "#1d1c24");
+    }
+    P(g, X + 2, Y + 3, 12, 1, "#44424f");
+    P(g, X + 7, Y + 12, 2, 1, "#0c0b10");
+    var h = hs(x + 5, y + 1);
+    if (h > 0.5) {
+      var c = h > 0.75 ? "#ff3cd8" : "#2affc8";
+      P(g, X + 4, Y + 7, 4, 1, c);
+      P(g, X + 5, Y + 8, 1, 2, c);
+      P(g, X + 8, Y + 9, 3, 1, mix(c, "#000000", 0.3));
+    }
+  }
+  function doorT(g, X, Y, x, y, k, L) {
+    shopWall(g, X, Y, x, y);
+    var c = k ? "#9afaff" : "#22e6ff";
+    P(g, X + 2, Y + 2, 12, 14, c);
+    P(g, X + 3, Y + 3, 10, 13, "#073040");
+    P(g, X + 4, Y + 4, 8, 12, "#0d5a70");
+    P(g, X + 4, Y + 10, 8, 6, "#16a0bc");
+    P(g, X + 4, Y + 13, 8, 3, "#40d8f0");
+    P(g, X + 7, Y + 4, 2, 12, "#073040");
+    P(g, X + 3, Y + 3, 10, 1, "#d8feff");
+    P(g, X + 10, Y + 9, 1, 2, "#ffe080");
+    P(g, X + 1, Y + 4, 1, 6, "#ff3cd8");
+    P(g, X + 14, Y + 4, 1, 6, "#ff3cd8");
+    L.push({ x: X + 8, y: Y + 12, col: "#22e6ff", r: 20, a: 0.7, k: "door", s: hs(x, y), b: 1 });
+    L.push({ x: X + 8, y: Y + 26, col: "#22e6ff", r: 30, a: 0.5, k: "spill", s: 0, b: 1 });
+  }
+  function tower(g, X, Y, x, y, at) {
+    var up = at(x, y - 1) === "tree", dn = at(x, y + 1) === "tree";
+    P(g, X, Y, 16, 16, "#231d30");
+    P(g, X, Y, 16, 1, "#1a1524");
+    var cols = ["#ff4fd8", "#c070ff", "#ffb04a", "#ff7ae0", "#8a5cff", "#ff4fd8"];
+    for (var j = 0; j < 3; j++) for (var i = 0; i < 3; i++) {
+      var h = hs(x * 3 + i + 101, y * 3 + j + 57), wx = X + 1 + i * 5, wy = Y + 1 + j * 5;
+      P(g, wx, wy, 4, 4, "#15111d");
+      if (h > 0.42) {
+        var c = cols[Math.floor(hs(x * 3 + i, y * 3 + j) * cols.length)];
+        P(g, wx, wy, 4, 3, c);
+        P(g, wx, wy, 4, 1, mix(c, "#ffffff", 0.45));
+        P(g, wx + 3, wy + 1, 1, 2, mix(c, "#000000", 0.35));
+      }
+    }
+    if (!up) {
+      P(g, X, Y, 16, 2, "#4a3c60");
+      P(g, X, Y, 16, 1, "#6a5688");
+    }
+    if (!dn) {
+      P(g, X, Y + 14, 16, 2, "#120e19");
+    }
+  }
+  function fenceT(g, X, Y, x, y, at, L) {
+    var isF = function(a, b) {
+      return at(a, b) === "fence";
+    }, hz = isF(x - 1, y) || isF(x + 1, y), vt = isF(x, y - 1) || isF(x, y + 1), i;
+    if (!hz && !vt) hz = true;
+    if (hz) {
+      P(g, X, Y + 13, 16, 2, "rgba(0,0,0,0.4)");
+      P(g, X, Y + 9, 16, 3, "#2c2420");
+      P(g, X, Y + 9, 16, 1, "#4a3c30");
+      P(g, X, Y + 11, 16, 1, "#1a1512");
+      P(g, X + 7, Y + 4, 2, 9, "#211b17");
+      P(g, X + 7, Y + 4, 1, 9, "#3a3028");
+      for (i = 0; i < 16; i++) {
+        var sy = Y + 3 + Math.round(Math.sin(Math.PI * ((i + 8) % 16) / 16) * 2);
+        P(g, X + i, sy, 1, 1, "#141110");
+        if (i % 4 === 1) {
+          P(g, X + i, sy + 1, 1, 2, C.amber);
+          P(g, X + i, sy + 1, 1, 1, "#fff0c0");
+        }
+      }
+      L.push({ x: X + 8, y: Y + 5, col: "#ffb347", r: 11, a: 0.4, k: "bulb", s: hs(x, y), b: 1 });
+    }
+    if (vt) {
+      P(g, X + 9, Y, 2, 16, "rgba(0,0,0,0.35)");
+      P(g, X + 6, Y, 3, 16, "#2c2420");
+      P(g, X + 6, Y, 1, 16, "#4a3c30");
+      for (i = 0; i < 16; i++) {
+        var sx = X + 4 + Math.round(Math.sin(Math.PI * ((i + 8) % 16) / 16) * 1.5);
+        P(g, sx, Y + i, 1, 1, "#141110");
+        if (i % 4 === 2) {
+          P(g, sx - 1, Y + i, 2, 1, C.amber);
+          P(g, sx - 1, Y + i, 1, 1, "#fff0c0");
+        }
+      }
+      if (!hz) L.push({ x: X + 4, y: Y + 8, col: "#ffb347", r: 11, a: 0.4, k: "bulb", s: hs(x, y), b: 1 });
+    }
+  }
+  function goods(g, X, Y, x, y, L) {
+    var r = srand(x * 7331 + y * 1931 >>> 0), cols = ["#ff3cd8", "#22e6ff", "#39ff88", "#ffb347", "#a05cff"];
+    for (var i = 0; i < 3; i++) {
+      var c = cols[Math.floor(r() * 5)], gx = X + 1 + Math.floor(r() * 12), gy = Y + 2 + Math.floor(r() * 11);
+      P(g, gx - 1, gy + 2, 4, 1, "rgba(0,0,0,0.45)");
+      P(g, gx, gy, 2, 2, c);
+      P(g, gx, gy, 1, 1, mix(c, "#ffffff", 0.55));
+    }
+    if (r() > 0.5) L.push({ x: X + 8, y: Y + 8, col: cols[Math.floor(r() * 5)], r: 12, a: 0.3, k: "goods", s: 0, b: 1 });
+  }
+  function rubble(g, X, Y, x, y, L) {
+    P(g, X + 1, Y + 12, 14, 3, "rgba(0,0,0,0.45)");
+    [[2, 8, 6, 5, "#2e2c35"], [7, 9, 7, 4, "#34323c"], [4, 6, 5, 4, "#3a3843"], [10, 7, 4, 3, "#2a2830"]].forEach(function(q) {
+      P(g, X + q[0], Y + q[1], q[2], q[3], q[4]);
+      P(g, X + q[0], Y + q[1], q[2], 1, shade(q[4], 1.35));
+    });
+    var c = C.crys[Math.floor(hs(x, y) * 3)];
+    P(g, X + 7, Y + 2, 2, 8, c);
+    P(g, X + 7, Y + 1, 1, 1, c);
+    P(g, X + 7, Y + 2, 1, 7, "#efe4ff");
+    P(g, X + 4, Y + 5, 2, 5, shade(c, 0.75));
+    P(g, X + 4, Y + 4, 1, 1, shade(c, 0.75));
+    P(g, X + 10, Y + 5, 2, 4, shade(c, 0.62));
+    P(g, X + 11, Y + 4, 1, 1, shade(c, 0.62));
+    L.push({ x: X + 8, y: Y + 7, col: c, r: 22, a: 0.65, k: "crys", s: hs(x + 1, y), b: 1 });
+  }
+  function lamp(g, X, Y, x, y, L) {
+    P(g, X + 4, Y + 13, 8, 2, "rgba(0,0,0,0.45)");
+    P(g, X + 5, Y + 11, 6, 3, "#24222b");
+    P(g, X + 5, Y + 11, 6, 1, "#3c3a46");
+    P(g, X + 7, Y + 3, 2, 9, "#34323d");
+    P(g, X + 7, Y + 3, 1, 9, "#55535f");
+    P(g, X + 5, Y + 0, 6, 2, "#2a2830");
+    P(g, X + 5, Y + 2, 6, 2, "#ffcf80");
+    P(g, X + 6, Y + 2, 4, 1, "#fff6dc");
+    L.push({ x: X + 8, y: Y + 4, col: "#ffb45a", r: 32, a: 0.7, k: "lamp", s: hs(x, y), b: 1 });
+  }
+  function masonry(g, X, Y, x, y, base) {
+    P(g, X, Y, 16, 16, "#18171d");
+    for (var row = 0; row < 2; row++) {
+      var wr = y * 2 + row, off = wr & 1 ? 8 : 0;
+      for (var bx = -off; bx < 16; bx += 16) {
+        var bi = Math.floor((x * 16 + bx + off) / 16), c = shade(base, 0.88 + hs(bi, wr) * 0.24), a = Math.max(bx, 0), b = Math.min(bx + 15, 16);
+        if (b <= a) continue;
+        P(g, X + a, Y + row * 8, b - a, 7, c);
+        P(g, X + a, Y + row * 8, b - a, 1, shade(c, 1.18));
+        if (hs(bi + 7, wr) > 0.7) P(g, X + a + 3, Y + row * 8 + 3, 3, 1, shade(c, 0.75));
+      }
+    }
+  }
+  function mtl(g, X, Y, x, y, t, k, at, L) {
+    if (t === "mtlF") {
+      masonry(g, X, Y, x, y, "#2c2a35");
+      P(g, X, Y + 13, 16, 3, "#121117");
+      P(g, X, Y + 12, 16, 1, "#3a3844");
+      if (x % 8 === 4) lantern(g, X, Y, 7, 5, L, hs(x, y));
+      else if (hs(x, y + 3) > 0.7) {
+        var c = winCol(x, y);
+        P(g, X + 4, Y + 4, 8, 6, "#121118");
+        P(g, X + 5, Y + 5, 6, 4, mix(c, "#05060c", 0.35));
+        P(g, X + 5, Y + 5, 6, 1, mix(c, "#ffffff", 0.3));
+        L.push({ x: X + 8, y: Y + 9, col: c, r: 14, a: 0.35, k: "win", s: hs(x, y), b: 1 });
+      }
+      return;
+    }
+    if (t === "mtlL") {
+      masonry(g, X, Y, x, y, "#2a2833");
+      P(g, X, Y, 16, 3, "#3c3a47");
+      P(g, X, Y, 16, 1, "#55535f");
+      P(g, X, Y + 3, 16, 1, "#121117");
+      return;
+    }
+    if (t === "mtlG") {
+      masonry(g, X, Y, x, y, "#24232c");
+      P(g, X + 3, Y, 10, 16, "#2e2c37");
+      P(g, X + 3, Y, 1, 16, "#45434f");
+      P(g, X + 12, Y, 1, 16, "#16151b");
+      P(g, X + 3, Y + 7, 10, 2, "#1a1920");
+      if (y % 8 === 4) lantern(g, X, Y, 7, 3, L, hs(x, y));
+      return;
+    }
+    if (t === "mtlH") {
+      masonry(g, X, Y, x, y, "#24232c");
+      for (var s = -16; s < 16; s += 6) for (var kk = 0; kk < 16; kk++) if (s + kk >= 0 && s + kk < 16) P(g, X + s + kk, Y + kk, 2, 1, "#6a5020");
+      P(g, X, Y, 16, 2, "#3c3a47");
+      return;
+    }
+    masonry(g, X, Y, x, y, t === "mtlO" ? "#1f1e26" : "#25242d");
+    if (t === "mtlB") {
+      P(g, X, Y + 6, 16, 4, "#2c2b35");
+      P(g, X, Y + 6, 16, 1, "#403e4a");
+      P(g, X, Y + 10, 16, 1, "#111015");
+    } else if (t === "mtlC") {
+      P(g, X + 4, Y + 4, 8, 7, "#121117");
+      for (var q = 0; q < 3; q++) P(g, X + 5, Y + 5 + q * 2, 6, 1, "#2e2c36");
+      P(g, X + 12, Y + 12, 1, 1, k ? "#ffb347" : "#6a4a20");
+    } else if (t === "mtlR") {
+      P(g, X + 6, Y + 6, 4, 4, "#2a1c14");
+      P(g, X + 7, Y + 7, 2, 2, C.warm);
+      L.push({ x: X + 8, y: Y + 8, col: "#ff9a3a", r: 16, a: 0.45, k: "torch", s: hs(x, y), b: 1 });
+    }
+  }
+  function isGroundLike(t) {
+    return t === "grass" || t === "flowers" || t === "fence" || t === "pond" || t === "jlamp" || t && KEYED[t] && !STREET[t];
+  }
+  function paint(g, f, x, y, k, at, L) {
+    var t = at(x, y), X = x * 16, Y = y * 16;
+    if (!t) return;
+    if (t === "cobble") return street(g, X, Y, x, y, at);
+    if (t === "grass") {
+      ground(g, X, Y, x, y);
+      if (hs(x * 11 + 5, y * 17 + 3) > 0.972) crystal(g, X, Y, x, y, L);
+      return;
+    }
+    if (ROOF[t]) return roof(g, X, Y, x, y, t, at, L);
+    if (MTL[t]) return mtl(g, X, Y, x, y, t, k, at, L);
+    if (t === "tree") return tower(g, X, Y, x, y, at);
+    if (t === "window") return windowT(g, X, Y, x, y, L);
+    if (t === "jshut") return shutter(g, X, Y, x, y);
+    if (t === "door") return doorT(g, X, Y, x, y, k, L);
+    if (t === "wall") {
+      shopWall(g, X, Y, x, y);
+      var lt = at(x - 1, y), rtt = at(x + 1, y);
+      if ((!SHOP[lt] || !SHOP[rtt]) && hs(x, y + 2) > 0.5) lantern(g, X, Y, SHOP[lt] ? 10 : 4, 5, L, hs(x, y));
+      return;
+    }
+    if (t === "flowers") {
+      ground(g, X, Y, x, y);
+      return goods(g, X, Y, x, y, L);
+    }
+    if (t === "fence") {
+      ground(g, X, Y, x, y);
+      return fenceT(g, X, Y, x, y, at, L);
+    }
+    if (t === "pond") {
+      ground(g, X, Y, x, y);
+      return rubble(g, X, Y, x, y, L);
+    }
+    if (t === "jlamp") {
+      ground(g, X, Y, x, y);
+      return lamp(g, X, Y, x, y, L);
+    }
+    if (KEYED[t]) {
+      var ns = 0;
+      [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function(d) {
+        if (STREET[at(x + d[0], y + d[1])]) ns++;
+      });
+      if (STREET[t] || ns >= 2) street(g, X, Y, x, y, at);
+      else ground(g, X, Y, x, y);
+      g.drawImage(keyed(t, k), X, Y);
+      return;
+    }
+    g.drawImage(tileImg(t, k), X, Y);
+  }
+  var SKIPRU = { jlamp: 1, mtlR: 1, mtlC: 1 };
+  function ruleLights(f, L) {
+    var RU = CCFX.rules;
+    for (var y = 0; y < f.h; y++) for (var x = 0; x < f.w; x++) {
+      var t = f.grid[y][x], h = hs(x, y), ru = RU[t];
+      if (ru && !SKIPRU[t]) {
+        if (ru[5] && h >= ru[5]) continue;
+        L.push({ x: x * 16 + 8, y: y * 16 + (ru[4] === void 0 ? 7 : ru[4]), col: ru[0], r: ru[1], a: ru[2], k: ru[3], s: h, b: 1 });
+      } else if (t === "signinn") L.push({ x: x * 16 + 8, y: y * 16 + 10, col: "#ff2bd6", r: 34, a: 0.8, k: "sign", s: h, b: 1 });
+      else if (t === "signshop") L.push({ x: x * 16 + 8, y: y * 16 + 10, col: "#ffb52e", r: 32, a: 0.75, k: "sign", s: h, b: 1 });
+      else if (t === "signarms") L.push({ x: x * 16 + 8, y: y * 16 + 10, col: "#00e5ff", r: 32, a: 0.75, k: "sign", s: h, b: 1 });
+      else if (t === "well") L.push({ x: x * 16 + 8, y: y * 16 + 6, col: "#00e5ff", r: 24, a: 0.6, k: "kiosk", s: h, b: 1 });
+    }
+  }
+  var AMBIENT = "#5a5880", AMB_ROOF = "#9a98c4", AMB_STREET = "#6e6c94", B = null, ANIM = { torch: 1, lamp: 1, flick: 1, sign: 1, warn: 1, pulse: 1, holo: 1, kiosk: 1, crys: 1, bulb: 1 };
+  function snapOK(f) {
+    if (!B || B.w !== f.w || B.h !== f.h) return false;
+    for (var y = 0; y < f.h; y++) {
+      var r = f.grid[y], s = B.snap[y];
+      for (var x = 0; x < f.w; x++) if (r[x] !== s[x]) return false;
+    }
+    return true;
+  }
+  function bake(f) {
+    var at = function(x2, y2) {
+      return x2 < 0 || y2 < 0 || x2 >= f.w || y2 >= f.h ? f.M.outside || null : f.grid[y2][x2];
+    };
+    B = { w: f.w, h: f.h, snap: f.grid.map(function(r) {
+      return r.slice();
+    }), fr: [], lights: [], nf: 1 };
+    for (var y = 0; y < f.h; y++) for (var x = 0; x < f.w; x++) {
+      var d = TILE_DEFS[f.grid[y][x]];
+      if (d && d.frames > 1) B.nf = 2;
+    }
+    var W2 = f.w * 16, H2 = f.h * 16;
+    for (var k = 0; k < B.nf; k++) {
+      var cv = document.createElement("canvas");
+      cv.width = W2;
+      cv.height = H2;
+      var g = cv.getContext("2d");
+      g.imageSmoothingEnabled = false;
+      if (k === 0) {
+        for (y = 0; y < f.h; y++) for (x = 0; x < f.w; x++) paint(g, f, x, y, 0, at, B.lights);
+      } else {
+        g.drawImage(B.fr[0], 0, 0);
+        var dummy = [];
+        for (y = 0; y < f.h; y++) for (x = 0; x < f.w; x++) {
+          var dd = TILE_DEFS[f.grid[y][x]];
+          if (dd && dd.frames > 1) paint(g, f, x, y, k, at, dummy);
+        }
+      }
+      B.fr.push(cv);
+    }
+    ruleLights(f, B.lights);
+    var lm = document.createElement("canvas");
+    lm.width = W2;
+    lm.height = H2;
+    var lg = lm.getContext("2d");
+    lg.fillStyle = AMBIENT;
+    lg.fillRect(0, 0, W2, H2);
+    for (y = 0; y < f.h; y++) for (x = 0; x < f.w; x++) {
+      var tt = f.grid[y][x];
+      if (ROOF[tt] || tt === "tree") {
+        lg.fillStyle = AMB_ROOF;
+        lg.fillRect(x * 16, y * 16, 16, 16);
+      } else if (STREET[tt]) {
+        lg.fillStyle = AMB_STREET;
+        lg.fillRect(x * 16, y * 16, 16, 16);
+      }
+    }
+    lg.globalCompositeOperation = "lighter";
+    B.lights.forEach(function(l) {
+      var r = Math.round(l.r * 1.35);
+      lg.globalAlpha = Math.min(1, l.a * 0.8);
+      lg.drawImage(gimg(l.col, r), Math.round(l.x - r), Math.round(l.y - r));
+    });
+    lg.globalAlpha = 1;
+    B.fr.forEach(function(cv2) {
+      var g2 = cv2.getContext("2d");
+      g2.globalCompositeOperation = "multiply";
+      if (g2.globalCompositeOperation === "multiply") g2.drawImage(lm, 0, 0);
+      else {
+        g2.globalCompositeOperation = "source-over";
+        g2.fillStyle = "rgba(6,5,16,0.55)";
+        g2.fillRect(0, 0, W2, H2);
+      }
+      g2.globalCompositeOperation = "lighter";
+      B.lights.forEach(function(l) {
+        g2.globalAlpha = Math.min(1, l.a * 0.42);
+        g2.drawImage(gimg(l.col, l.r), Math.round(l.x - l.r), Math.round(l.y - l.r));
+      });
+      g2.globalAlpha = 1;
+      g2.globalCompositeOperation = "source-over";
+    });
+    B.anim = B.lights.filter(function(l) {
+      return ANIM[l.k];
+    });
+    var oc = mkCanvas(32, 32), og = oc.getContext("2d");
+    for (y = 0; y < 2; y++) for (x = 0; x < 2; x++) masonry(og, x * 16, y * 16, x, y, "#1f1e26");
+    og.globalCompositeOperation = "multiply";
+    og.fillStyle = og.globalCompositeOperation === "multiply" ? AMBIENT : "rgba(6,5,16,0.55)";
+    og.fillRect(0, 0, 32, 32);
+    B.outImg = oc;
+    B.pat = null;
+    if (typeof CCGS !== "undefined") CCGS.bakes = (CCGS.bakes || 0) + 1;
+    return B;
+  }
+  var TC = TerrCache, origDraw = TC.draw;
+  TC.draw = function(f, ctx2, cx, cy, vw, vh, fr, out) {
+    if (f.mapName !== "town" || !S.on || !f.grid || !f.w) return origDraw.apply(this, arguments);
+    if (!snapOK(f)) bake(f);
+    var cv = B.fr[fr % B.nf], mw = f.w * 16, mh = f.h * 16;
+    if (cx < 0 || cy < 0 || cx + vw > mw || cy + vh > mh) {
+      if (!B.pat) B.pat = ctx2.createPattern(B.outImg, "repeat");
+      ctx2.save();
+      ctx2.translate(-cx, -cy);
+      ctx2.fillStyle = B.pat;
+      ctx2.fillRect(cx, cy, Math.ceil(vw) + 1, Math.ceil(vh) + 1);
+      ctx2.restore();
+    }
+    var sx = Math.max(cx, 0), sy = Math.max(cy, 0), ex = Math.min(cx + vw + 16, mw), ey = Math.min(cy + vh + 16, mh);
+    if (ex > sx && ey > sy) ctx2.drawImage(cv, sx, sy, ex - sx, ey - sy, sx - cx, sy - cy, ex - sx, ey - sy);
+    return true;
+  };
+  function townUnder(ctx, f, cx, cy, x0, y0, cols, rows) {
+    if (!B) return;
+    var T = f.t, vw = cols * 16, vh = rows * 16;
+    for (var i = 0; i < B.anim.length; i++) {
+      var l = B.anim[i];
+      if (l.k !== "crys") continue;
+      var sx = l.x - cx, sy = l.y - cy;
+      if (sx < -4 || sy < -8 || sx > vw + 4 || sy > vh + 8) continue;
+      var p = (T * 0.6 + l.s * 7) % 1;
+      if (p < 0.12) {
+        ctx.fillStyle = "rgba(255,255,255," + (0.9 - p * 6).toFixed(2) + ")";
+        ctx.fillRect(Math.round(sx), Math.round(sy - 4), 1, 1);
+      }
+    }
+  }
+  function townOver(ctx, f, cx, cy, x0, y0, cols, rows) {
+    if (!B) return;
+    var T = f.t, vw = cols * 16, vh = rows * 16, i, l, a, sx, sy;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (i = 0; i < B.anim.length; i++) {
+      l = B.anim[i];
+      sx = l.x - cx;
+      sy = l.y - cy;
+      if (sx < -l.r || sy < -l.r || sx > vw + l.r || sy > vh + l.r) continue;
+      a = l.a * 0.38;
+      if (l.k === "torch" || l.k === "flick") a *= 0.7 + 0.3 * Math.sin(T * 9 + l.s * 50) * Math.sin(T * 4.3 + l.s * 13);
+      else if (l.k === "lamp") a *= 0.85 + 0.15 * Math.sin(T * 2 + l.s * 20);
+      else if (l.k === "sign") a *= 0.8 + 0.2 * Math.sin(T * 6 + l.s * 40) + (Math.sin(T * 1.7 + l.s * 9) > 0.96 ? -0.5 : 0);
+      else if (l.k === "warn") a *= Math.floor(T * 2 + l.s * 4) % 2 ? 1.6 : 0.2;
+      else if (l.k === "crys") a *= 0.5 + 0.5 * Math.sin(T * 1.3 + l.s * 9);
+      else if (l.k === "bulb") a *= 0.6 + 0.4 * Math.sin(T * 3 + l.s * 30);
+      else a *= 0.7 + 0.3 * Math.sin(T * 2.2 + l.s * 9);
+      if (a <= 0.01) continue;
+      ctx.globalAlpha = Math.min(1, a);
+      ctx.drawImage(gimg(l.col, l.r), Math.round(sx - l.r), Math.round(sy - l.r));
+    }
+    f.npcs.forEach(function(n) {
+      var c = f.npcPos(n);
+      aura(ctx, accentFor(n.def.look), c[0] - cx, c[1] - 6 - cy, 0.2);
+    });
+    var p = f.p;
+    aura(ctx, accentFor(G.party[0].id), p.px - cx, p.py - 6 - cy, 0.26);
+    ctx.globalAlpha = 0.1;
+    ctx.drawImage(gimg("#bfe6ff", 36), Math.round(p.px - cx - 36), Math.round(p.py - 8 - cy - 36));
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(176,214,255,0.16)";
+    for (i = 0; i < 26; i++) {
+      var u = (T * 1.7 + hs(i, 1)) % 1, rx = ((hs(i, 2) * (vw + 60) - u * 18) % (vw + 60) + vw + 60) % (vw + 60) - 10, ry = u * (vh + 20) - 10;
+      ctx.fillRect(Math.round(rx), Math.round(ry), 1, 4 + i % 3);
+    }
+    for (i = 0; i < 10; i++) {
+      var q = (T * 0.05 + i * 0.29) % 1, mx = Math.round(hs(i, 31) * vw + Math.sin(T * 0.8 + i * 2) * 6), my = Math.round(vh - q * vh);
+      ctx.fillStyle = "rgba(" + (i % 2 ? "255,120,230" : "90,230,255") + "," + (0.4 * Math.sin(q * 3.14)).toFixed(2) + ")";
+      ctx.fillRect(mx, my, 1, 1);
+    }
+  }
+  function aura(ctx, col, x, y, a) {
+    ctx.globalAlpha = a;
+    ctx.drawImage(gimg(col, 14), Math.round(x - 14), Math.round(y - 14));
+  }
+  var prevU = TFX.under, prevO = TFX.over;
+  TFX.under = function(ctx, f) {
+    S.fp = S.sprites;
+    if (f.mapName === "town" && S.on && B) return townUnder.apply(null, arguments);
+    return prevU.apply(TFX, arguments);
+  };
+  TFX.over = function(ctx, f) {
+    S.fp = false;
+    if (f.mapName === "town" && S.on && B) return townOver.apply(null, arguments);
+    return prevO.apply(TFX, arguments);
+  };
+  var FC = {}, ACC = {};
+  function rgb2hsv(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0;
+    if (d) {
+      h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h *= 60;
+    }
+    return [h, mx ? d / mx : 0, mx];
+  }
+  function accentOf(key) {
+    if (ACC[key]) return ACC[key];
+    var s = prevCS(key, 0, 0, "stand"), w = s.width, h = s.height, d = s.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h).data, bins = {}, best = null, i;
+    for (i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      var v = rgb2hsv(d[i], d[i + 1], d[i + 2]);
+      if (v[1] > 0.55 && v[2] > 0.7 && !(v[0] > 8 && v[0] < 45)) {
+        var bk = Math.floor(v[0] / 30);
+        var e = bins[bk] || (bins[bk] = { n: 0, r: 0, g: 0, b: 0 });
+        e.n++;
+        e.r += d[i];
+        e.g += d[i + 1];
+        e.b += d[i + 2];
+      }
+    }
+    for (i in bins) if (!best || bins[i].n > best.n) best = bins[i];
+    return ACC[key] = best && best.n >= 3 ? rgbToHex(best.r / best.n, best.g / best.n, best.b / best.n) : "#22e6ff";
+  }
+  function accentFor(key) {
+    try {
+      return accentOf(key);
+    } catch (e) {
+      return "#22e6ff";
+    }
+  }
+  function neonize(src, key) {
+    var w = src.width, h = src.height, c = mkCanvas(w, h, true), g = c.getContext("2d");
+    g.drawImage(src, 0, 0);
+    var im = g.getImageData(0, 0, w, h), d = im.data, o = new Uint8Array(w * h), acc = hexToRgb(accentFor(key)), i, x, y, v, k;
+    for (i = 0; i < w * h; i++) {
+      k = i * 4;
+      if (d[k + 3] && !(d[k] === 20 && d[k + 1] === 16 && d[k + 2] === 32) && d[k] + d[k + 1] + d[k + 2] > 40) o[i] = 1;
+    }
+    for (i = 0; i < w * h; i++) {
+      k = i * 4;
+      if (!d[k + 3]) continue;
+      if (!o[i]) {
+        d[k] = 7;
+        d[k + 1] = 6;
+        d[k + 2] = 13;
+        continue;
+      }
+      v = rgb2hsv(d[k], d[k + 1], d[k + 2]);
+      if (v[1] > 0.5 && v[2] > 0.72) {
+        d[k] = Math.min(255, d[k] * 1.12);
+        d[k + 1] = Math.min(255, d[k + 1] * 1.12);
+        d[k + 2] = Math.min(255, d[k + 2] * 1.12);
+        continue;
+      }
+      var m = v[1] > 0.18 && v[0] >= 6 && v[0] <= 42 && v[2] > 0.5 ? 0.86 : 0.7, tr = 28, tg = 30, tb = 52;
+      d[k] = d[k] * m * 0.85 + tr * 0.15;
+      d[k + 1] = d[k + 1] * m * 0.85 + tg * 0.15;
+      d[k + 2] = d[k + 2] * m * 0.85 + tb * 0.15;
+    }
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+      i = y * w + x;
+      if (!o[i]) continue;
+      var lf = x > 0 && o[i - 1], rt = x < w - 1 && o[i + 1];
+      if (lf && rt) continue;
+      k = i * 4;
+      v = rgb2hsv(d[k], d[k + 1], d[k + 2]);
+      if (v[1] > 0.5 && v[2] > 0.72) continue;
+      d[k] = d[k] * 0.55 + acc[0] * 0.45;
+      d[k + 1] = d[k + 1] * 0.55 + acc[1] * 0.45;
+      d[k + 2] = d[k + 2] * 0.55 + acc[2] * 0.45;
+    }
+    g.putImageData(im, 0, 0);
+    return c;
+  }
+  var prevCS = charSprite;
+  charSprite = function(key, dir, frame, pose) {
+    var s = prevCS(key, dir, frame, pose);
+    if (!S.fp || pose && pose !== "stand" || !s || !s.width) return s;
+    var ck = key + "|" + dir + "|" + frame;
+    if (FC[ck]) return FC[ck];
+    try {
+      return FC[ck] = neonize(s, key);
+    } catch (e) {
+      return s;
+    }
+  };
+  S.fieldSprite = function(key, dir, frame) {
+    var o = S.fp;
+    S.fp = true;
+    try {
+      return charSprite(key, dir, frame, "stand");
+    } finally {
+      S.fp = o;
+    }
+  };
+  var NB = {};
+  S.neonBtn = function(ctx, x, y, w, h) {
+    var k = w + "x" + h, c = NB[k];
+    if (!c) {
+      c = mkCanvas(w + 8, h + 8);
+      var g = c.getContext("2d"), rr = function(a, b, ww, hh, r) {
+        g.beginPath();
+        g.moveTo(a + r, b);
+        g.lineTo(a + ww - r, b);
+        g.quadraticCurveTo(a + ww, b, a + ww, b + r);
+        g.lineTo(a + ww, b + hh - r);
+        g.quadraticCurveTo(a + ww, b + hh, a + ww - r, b + hh);
+        g.lineTo(a + r, b + hh);
+        g.quadraticCurveTo(a, b + hh, a, b + hh - r);
+        g.lineTo(a, b + r);
+        g.quadraticCurveTo(a, b, a + r, b);
+        g.closePath();
+      };
+      g.shadowColor = "rgba(34,230,255,0.9)";
+      g.shadowBlur = 4;
+      rr(4.5, 4.5, w - 1, h - 1, 4);
+      g.fillStyle = "rgba(4,12,26,0.88)";
+      g.fill();
+      g.lineWidth = 1.5;
+      g.strokeStyle = "#22e6ff";
+      g.stroke();
+      g.shadowBlur = 0;
+      rr(6.5, 6.5, w - 5, h - 5, 3);
+      g.lineWidth = 1;
+      g.strokeStyle = "rgba(34,230,255,0.25)";
+      g.stroke();
+      NB[k] = c;
+    }
+    ctx.drawImage(c, x - 4, y - 4);
+  };
+  S.accent = accentFor;
+  S.rebake = function() {
+    B = null;
+  };
+  S.bake = function() {
+    return B;
+  };
+  return S;
+})();
+var fieldSprite = CCGS.fieldSprite;
 
 // ---- cc_auto.js ----
 var CCAI = (function() {

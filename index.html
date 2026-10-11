@@ -40064,10 +40064,13 @@ var CCNF = (function() {
     A.img.src = src;
     return A;
   }
-  var WSTEP = [4, 4, 5, 5];
+  var WSTEP = [8, 8, 10, 10];
   function walkPhase(dir) {
     if (typeof field === "undefined" || !field || !field.p || !field.p.mv) return -1;
-    return Math.floor((field.p.walkD || 0) / WSTEP[dir]) % 4;
+    return phaseFor(dir, field.p.walkD || 0);
+  }
+  function phaseFor(dir, d) {
+    return Math.floor(d / WSTEP[dir]) % 4;
   }
   function prep(A) {
     var w = 18, h = 26, c = mkCanvas(w, h, true), g = c.getContext("2d");
@@ -40129,7 +40132,7 @@ var CCNF = (function() {
     });
   } catch (e) {
   }
-  return { draw, clearOK, last: function() {
+  return { draw, clearOK, phaseFor, WSTEP, last: function() {
     return last;
   }, ready: function() {
     return ["front", "back", "side"].every(function(v) {
@@ -41941,9 +41944,9 @@ var CCCards = (function() {
     ["courier", "Ghost Courier", "Voice on the payphone", "Ruin", [4, 3, 5, 4], "npc", "courier", "Ghost Calls", "Delivers the messages the dead could not finish."],
     ["mchorus", "Mara, Merged", "Chorus-bound Quill", "Ruin", [9, 8, 9, 8], "boss", "mchorus", "The Ascension Array", "One of ten thousand voices, and still the one that remembers a name."],
     // ---- Crown Cards original filler (labelled as such) ----
-    ["pilgrim", "Neon Pilgrim", "Crown Cards original", "Ember", [4, 5, 4, 4], "original", "pilgrim", "Crown Cards original", "Walks the rain to relight a dead sign."],
-    ["pretender", "Static Pretender", "Crown Cards original", "Ash", [7, 4, 7, 6], "original", "pretender", "Crown Cards original", "Wore the Helix badge for one night. The static remembers."],
-    ["herald", "Signal Herald", "Crown Cards original", "Oath", [6, 7, 5, 6], "original", "herald", "Crown Cards original", "Carries the broadcast to a city that has no ears."]
+    ["pilgrim", "Neon Pilgrim", "Cyber Cards original", "Ember", [4, 5, 4, 4], "original", "pilgrim", "Cyber Cards original", "Walks the rain to relight a dead sign."],
+    ["pretender", "Static Pretender", "Cyber Cards original", "Ash", [7, 4, 7, 6], "original", "pretender", "Cyber Cards original", "Wore the Helix badge for one night. The static remembers."],
+    ["herald", "Signal Herald", "Cyber Cards original", "Oath", [6, 7, 5, 6], "original", "herald", "Cyber Cards original", "Carries the broadcast to a city that has no ears."]
   ];
   var RARE_UNIQUE = { greymaw: 1, sentinel: 1, rook: 1, aldric: 1 };
   var CARDS = [], BY_ID = {};
@@ -44003,7 +44006,7 @@ var CrownCards = (function() {
         var c = document.createElement("canvas");
         P.paintCrown(c);
         return c;
-      })(), h("div", { class: "l2", text: "CROWN CARDS" }), h("div", { class: "dim small", text: Cards.PACK.sub, style: "margin-top:6px" })]);
+      })(), h("div", { class: "l2", text: "CYBER CARDS" }), h("div", { class: "dim small", text: Cards.PACK.sub, style: "margin-top:6px" })]);
       var fan = h("div", { class: "fan" }, Cards.PACK.fan.map(function(id) {
         return cardEl(Cards.get(id), { size: "mini", owner: id === "boss" ? "O" : "P" });
       }));
@@ -44485,7 +44488,7 @@ var CrownRPG = (function() {
   }
   function offer(talkId, spec, orig, n) {
     return __async(this, null, function* () {
-      var p = ask(spec.who + ": Talk, or play Crown Cards?", ["Play Crown Cards", "Talk"]);
+      var p = ask(spec.who + ": Talk, or play Cyber Cards?", ["Play Cyber Cards", "Talk"]);
       var d = topScene();
       if (d && d.name === "dialog") d.choice = 1;
       var c = yield p;
@@ -44493,7 +44496,7 @@ var CrownRPG = (function() {
       var opp = CrownCards.opponent(spec.opp), sv = save();
       if (!CrownCards.isUnlocked(sv, opp)) {
         var need = CrownCards.opponent(opp.req);
-        yield say(spec.who + ": Not yet. Beat " + need.name + " at Crown Cards first, then come back.");
+        yield say(spec.who + ": Not yet. Beat " + need.name + " at Cyber Cards first, then come back.");
         return;
       }
       var res = yield play(spec.opp);

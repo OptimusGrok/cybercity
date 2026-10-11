@@ -43798,7 +43798,7 @@ var CrownCards = (function() {
           c.style.cssText = "width:100%;height:100%;object-fit:contain";
           return c;
         })()]),
-        h("div", { class: "grow" }, [h("div", { class: "gold", style: "font-weight:bold", text: opp.name + (opp.title ? " " + opp.title : "") }), h("div", { class: "dim small", text: (opp.where || "") + " - AI: " + (opp.ai === "crown" ? "Crown" : opp.ai === "adept" ? "Adept" : "Novice") })])
+        h("div", { class: "grow" }, [h("div", { class: "gold", style: "font-weight:bold", text: opp.name + (opp.title ? " " + opp.title : "") }), h("div", { class: "dim small", text: (opp.where || "") + " - AI: " + (opp.ai === "crown" ? "Overclock" : opp.ai === "adept" ? "Adept" : "Novice") })])
       ]),
       h("p", { class: "small", text: '"' + (opp.quote || "Shall we?") + '"', style: "margin-top:6px;color:#c8cce8" })
     ]);
@@ -43828,7 +43828,7 @@ var CrownCards = (function() {
       if (ctx.practice) {
         var lv = h("div", { class: "row", style: "margin-top:6px" });
         ["novice", "adept", "crown"].forEach(function(a) {
-          lv.appendChild(h("button", { class: "btn sm grow" + (ctx.ai === a ? " on" : ""), text: a.charAt(0).toUpperCase() + a.slice(1), "data-ai": a, onclick: function() {
+          lv.appendChild(h("button", { class: "btn sm grow" + (ctx.ai === a ? " on" : ""), text: a === "crown" ? "Overclock" : a.charAt(0).toUpperCase() + a.slice(1), "data-ai": a, onclick: function() {
             ctx.ai = a;
             opp.ai = a;
             drawRules();
@@ -43873,13 +43873,13 @@ var CrownCards = (function() {
     }
     function coin(call) {
       var flip = ctx.rng() < 0.5 ? "crown" : "ember", first = flip === call ? "P" : "O";
-      var c = h("div", { class: "coin spin", text: flip === "crown" ? "C" : "E" });
+      var c = h("div", { class: "coin spin", text: flip === "crown" ? "C" : "G" });
       var msg = h("div", { class: "gold", style: "font-weight:bold;font-size:18px", text: "Flipping..." });
-      coinOv = h("div", { class: "overlay", "data-coin": "1" }, [h("div", { class: "dim", text: "You called " + (call === "crown" ? "CROWN" : "EMBER") }), c, msg]);
+      coinOv = h("div", { class: "overlay", "data-coin": "1" }, [h("div", { class: "dim", text: "You called " + (call === "crown" ? "CHIP" : "GLITCH") }), c, msg]);
       scr.appendChild(coinOv);
       var wait = ctx.fast ? 0 : 1100;
       setTimeout(function() {
-        msg.textContent = "It is " + (flip === "crown" ? "CROWN" : "EMBER") + "! " + (first === "P" ? "You go first." : opp.name + " goes first.");
+        msg.textContent = "It is " + (flip === "crown" ? "CHIP" : "GLITCH") + "! " + (first === "P" ? "You go first." : opp.name + " goes first.");
         c.classList.remove("spin");
         setTimeout(function() {
           if (coinOv && coinOv.parentNode) coinOv.parentNode.removeChild(coinOv);
@@ -43891,10 +43891,10 @@ var CrownCards = (function() {
       go(ctx.first === "P" || ctx.first === "O" ? ctx.first : "random");
     } }));
     else {
-      goRow.appendChild(h("button", { class: "btn gold grow go", text: "Call CROWN", "data-act": "call-crown", onclick: function() {
+      goRow.appendChild(h("button", { class: "btn gold grow go", text: "Call CHIP", "data-act": "call-crown", onclick: function() {
         coin("crown");
       } }));
-      goRow.appendChild(h("button", { class: "btn ember grow go", text: "Call EMBER", "data-act": "call-ember", onclick: function() {
+      goRow.appendChild(h("button", { class: "btn ember grow go", text: "Call GLITCH", "data-act": "call-ember", onclick: function() {
         coin("ember");
       } }));
     }
@@ -43913,7 +43913,7 @@ var CrownCards = (function() {
     }), deck = [];
     while (deck.length < 5) deck.push(pool[Math.floor(rng() * pool.length)].id);
     var arts = ["kid", "odo", "guard", "fenn", "aldric", "orrin", "halda"];
-    return { id: "practice", name: "Practice Rival", title: "(" + level + ")", where: "The practice table", portrait: arts[Math.floor(rng() * arts.length)], ai: level, rules: {}, deck, quote: "No stakes. Try any rule you like.", win: "Good game." };
+    return { id: "practice", name: "Practice Rival", title: "(" + (level === "crown" ? "overclock" : level) + ")", where: "The practice table", portrait: arts[Math.floor(rng() * arts.length)], ai: level, rules: {}, deck, quote: "No stakes. Try any rule you like.", win: "Good game." };
   }
   function start(opponent, options) {
     options = options || {};

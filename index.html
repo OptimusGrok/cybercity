@@ -9801,6 +9801,77 @@ function BattleScene(formation, bgKind, opts) {
     var a = f >= 0.5 ? [255, 216, 48] : [224, 56, 56], b = f >= 0.5 ? [64, 224, 96] : [255, 216, 48], t = f >= 0.5 ? (f - 0.5) * 2 : f * 2;
     return "rgb(" + Math.round(a[0] + (b[0] - a[0]) * t) + "," + Math.round(a[1] + (b[1] - a[1]) * t) + "," + Math.round(a[2] + (b[2] - a[2]) * t) + ")";
   }
+  var LBL = {};
+  function lblImg(t, col) {
+    var k = t + "|" + col;
+    if (LBL[k]) return LBL[k];
+    var c = mkCanvas(textWidth(t) + 2, 10), g = c.getContext("2d"), dx, dy;
+    for (dx = 0; dx <= 2; dx++) for (dy = 0; dy <= 2; dy++) if (dx !== 1 || dy !== 1) drawTextRaw(g, t, dx, dy, "#05050c");
+    drawTextRaw(g, t, 1, 1, col);
+    return LBL[k] = c;
+  }
+  function fitName(n, maxW) {
+    if (textWidth(n) <= maxW) return n;
+    var w = n.split(" "), tl = w.length > 2 && w[w.length - 1].length === 1 ? 2 : 1;
+    if (w.length > tl) {
+      var a = w.slice(0, -tl).map(function(q) {
+        return q.charAt(0);
+      }).join("") + " " + w.slice(-tl).join(" ");
+      if (textWidth(a) <= maxW) return a;
+      n = a;
+    }
+    var k = Math.max(2, Math.floor(maxW / 6) - 1);
+    return n.length > k ? n.slice(0, k) + "." : n;
+  }
+  function labelLayout() {
+    var vis = B.enemies.filter(function(e) {
+      return e.alive || e.dieT > 0 && e.dieT < 0.67;
+    }), out = [];
+    vis.forEach(function(e) {
+      var cx = e.x + e.ox, y = barTop(e) - 9, maxW = 96;
+      vis.forEach(function(o) {
+        if (o === e) return;
+        var oy = barTop(o) - 9;
+        if (Math.abs(oy - y) < 11) maxW = Math.min(maxW, Math.max(24, 2 * Math.abs(o.x + o.ox - cx) - 6));
+      });
+      var t = fitName(e.name || e.d.name, maxW), w = textWidth(t) + 2, x = Math.round(Math.max(1, Math.min(W - 1 - w, cx - w / 2)));
+      out.push({ e, t, x, y: Math.round(Math.max(1, y)), w, h: 10 });
+    });
+    function hit(a2, b2) {
+      return a2.x < b2.x + b2.w + 2 && b2.x < a2.x + a2.w + 2 && a2.y < b2.y + b2.h && b2.y < a2.y + a2.h;
+    }
+    out.sort(function(a2, b2) {
+      return (b2.e.d.boss ? 1 : 0) - (a2.e.d.boss ? 1 : 0) || a2.y - b2.y;
+    });
+    for (var i = 1; i < out.length; i++) for (var tries = 0; tries < 6; tries++) {
+      var a = out[i], b = null;
+      for (var j = 0; j < i; j++) if (hit(a, out[j])) {
+        b = out[j];
+        break;
+      }
+      if (!b) break;
+      var L = b.x - a.w - 3, Rr = b.x + b.w + 3, ac = a.x + a.w / 2, bc = b.x + b.w / 2, ec = a.e.x + a.e.ox, nx = ac <= bc ? L : Rr;
+      if (tries === 0 && nx >= 1 && nx + a.w <= W - 1 && Math.abs(nx + a.w / 2 - ec) <= a.w / 2 + 8) a.x = nx;
+      else if (b.y - a.h - 1 >= 1 && a.y <= b.y) a.y = b.y - a.h - 1;
+      else a.y = b.y + b.h + 1;
+    }
+    return out;
+  }
+  function drawEnemyLabels() {
+    var M = B.menu, tg = null;
+    if (M && M.mode === "target" && B.phase === "fight") {
+      var to = targetOpts(M.ttype);
+      tg = to[Math.min(M.tgt, to.length - 1)];
+      if (M.ttype === "allEnemies") tg = "all";
+    }
+    B.labels = labelLayout();
+    B.labels.forEach(function(l) {
+      var e = l.e, hot = tg === e || tg === "all" && e.alive, col = hot ? Math.floor(B.t * 4) % 2 ? "#ffe060" : "#fff8c0" : e.d.boss ? "#ffd060" : "#e8ecff";
+      ctx.globalAlpha = e.dieT > 0 ? Math.max(0, 1 - e.dieT * 1.5) : 1;
+      ctx.drawImage(lblImg(l.t, col), l.x, l.y);
+      ctx.globalAlpha = 1;
+    });
+  }
   function drawEnemyBar(e) {
     var boss = e.d.boss, sp = enemySprite(e.id, 0), w = boss ? 76 : Math.max(26, Math.min(36, sp.width - 4)), h = boss ? 6 : 5;
     var x = Math.round(e.x + e.ox - w / 2), y = barTop(e), a = e.dieT > 0 ? Math.max(0, 1 - e.dieT * 1.5) : 1;
@@ -10756,6 +10827,8 @@ function BattleScene(formation, bgKind, opts) {
     var c = CORE.CHARS[pw.m.id].cmd;
     return ["Fight", CORE.CMD_NAMES[c], "Magic", "Item", "Defend", "Run", "Auto"];
   }
+  var CMD_W = 74, CMD_TX = 15, PARTY_GEO = { name: CMD_W + 7, hp: CMD_W + 57, bar: CMD_W + 106, barW: 256 - CMD_W - 106 - 7 };
+  B.uiGeo = { cmdX: 0, cmdW: CMD_W, cmdTx: CMD_TX, partyX: CMD_W, party: PARTY_GEO };
   function cmdGeo(n) {
     var ph = 76 + BOT + battlePanelX(), span = ph - 12 - 7, pitch = Math.max(8, Math.floor(span / Math.max(1, n - 1)));
     return { pitch, y0: 148 + 6 + Math.max(0, Math.floor((span - pitch * (n - 1)) / 2)), n, ph };
@@ -10961,7 +11034,7 @@ function BattleScene(formation, bgKind, opts) {
     }
     if (!pw || B.phase !== "fight") return false;
     if (M.mode === "cmd") {
-      if (gx >= 84 && gx < 138) {
+      if (gx >= 0 && gx < CMD_W) {
         var cmds = commandsFor(pw), cg = cmdGeo(cmds.length), ci = Math.max(0, Math.min(cmds.length - 1, Math.round((gy - E - cg.y0 - 3) / cg.pitch)));
         pickIdx({ get i() {
           return M.ci;
@@ -10988,6 +11061,10 @@ function BattleScene(formation, bgKind, opts) {
           bd = d;
           best = k;
         }
+      });
+      (B.labels || []).forEach(function(l) {
+        var k = to.indexOf(l.e);
+        if (k >= 0 && gx >= l.x - 2 && gx < l.x + l.w + 2 && gy >= l.y - 3 && gy < l.y + l.h + 3) best = k;
       });
       if (best >= 0) pickIdx({ get i() {
         return M.tgt;
@@ -11398,6 +11475,7 @@ function BattleScene(formation, bgKind, opts) {
   B.barTop = barTop;
   B.posOf = posOf;
   B.handPos = handPos;
+  B.targetOpts = targetOpts;
   B.draw = function() {
     var PX = battlePanelX(), A = H - 76 - BOT - PX, E = H - 224 - BOT - PX, Ec = Math.round((A - 148) / 2);
     layoutY();
@@ -11409,6 +11487,10 @@ function BattleScene(formation, bgKind, opts) {
       if (!e.alive && e.dieT >= 1) return;
       BX.drawEnemy(ctx, B, e);
       if (e.cast && e.alive) drawEnemyArm(e);
+    });
+    drawEnemyLabels();
+    B.enemies.forEach(function(e) {
+      if (!e.alive && e.dieT >= 1) return;
       drawEnemyBar(e);
     });
     var cur = curActor();
@@ -11437,38 +11519,29 @@ function BattleScene(formation, bgKind, opts) {
     }
     ctx.save();
     ctx.translate(0, E);
-    drawWindow(ctx, 0, 148, 84, 76 + BOT + PX);
-    var names = [], counts = {};
-    B.enemies.forEach(function(e) {
-      if (e.alive) {
-        if (!counts[e.d.name]) names.push(e.d.name);
-        counts[e.d.name] = (counts[e.d.name] || 0) + 1;
-      }
-    });
-    names.slice(0, 5).forEach(function(n, i) {
-      drawText(ctx, counts[n] > 1 ? n.slice(0, 11) : n.slice(0, 13), 5, 156 + i * 12);
-      if (counts[n] > 1) drawText(ctx, "" + counts[n], 73, 156 + i * 12, "#a0c8ff");
-    });
-    drawWindow(ctx, 138, 148, 118, 76 + BOT + PX);
+    drawWindow(ctx, 0, 148, CMD_W, 76 + BOT + PX);
+    var PB = CMD_W;
+    drawWindow(ctx, PB, 148, 256 - PB, 76 + BOT + PX);
     B.party.forEach(function(p, i) {
       var m = p.m, s = st(p), y = 156 + i * 16, low = m.hp <= s.mhp / 4, col = m.hp <= 0 ? "#ff7070" : low ? "#ffe060" : "#ffffff";
+      var G0 = PARTY_GEO;
       if (cur === p && B.phase === "fight") {
-        R(ctx, 142, y - 2, 110, 14, "#2a3aa8");
-        R(ctx, 142, y - 2, 110, 1, "#5a6ae0");
-        R(ctx, 142, y + 11, 110, 1, "#1a2478");
-        R(ctx, 142, y - 2, 2, 14, "#ffe060");
+        R(ctx, PB + 4, y - 2, 252 - PB - 4, 14, "#2a3aa8");
+        R(ctx, PB + 4, y - 2, 252 - PB - 4, 1, "#5a6ae0");
+        R(ctx, PB + 4, y + 11, 252 - PB - 4, 1, "#1a2478");
+        R(ctx, PB + 4, y - 2, 2, 14, "#ffe060");
       }
-      drawText(ctx, CORE.CHARS[m.id].name, 145, y, col);
-      drawText(ctx, pad(m.hp, 3) + "/" + pad(s.mhp, 3), 177, y, col);
-      drawBar(ctx, 220, y + 2, 30, p.atb / 100, p.atb >= 100 ? Math.floor(B.t * 6) % 2 ? "#ffe040" : "#fff8b0" : "#e0e8ff");
-      var hf = Math.max(0, Math.min(1, m.hp / s.mhp)), mf = Math.max(0, Math.min(1, m.mp / Math.max(1, s.mmp)));
-      R(ctx, 145, y + 9, 70, 2, "#0a0a1c");
+      drawText(ctx, CORE.CHARS[m.id].name.slice(0, 8), G0.name, y, col);
+      drawText(ctx, pad(m.hp, 3) + "/" + pad(s.mhp, 3), G0.hp, y, col);
+      drawBar(ctx, G0.bar, y + 2, G0.barW, p.atb / 100, p.atb >= 100 ? Math.floor(B.t * 6) % 2 ? "#ffe040" : "#fff8b0" : "#e0e8ff");
+      var hf = Math.max(0, Math.min(1, m.hp / s.mhp)), mf = Math.max(0, Math.min(1, m.mp / Math.max(1, s.mmp))), hw = G0.hp + 42 - G0.name;
+      R(ctx, G0.name, y + 9, hw, 2, "#0a0a1c");
       if (hf > 0) {
-        R(ctx, 145, y + 9, Math.max(1, Math.round(70 * hf)), 2, hpColor(hf));
-        R(ctx, 145, y + 9, Math.max(1, Math.round(70 * hf)), 1, "rgba(255,255,255,0.3)");
+        R(ctx, G0.name, y + 9, Math.max(1, Math.round(hw * hf)), 2, hpColor(hf));
+        R(ctx, G0.name, y + 9, Math.max(1, Math.round(hw * hf)), 1, "rgba(255,255,255,0.3)");
       }
-      R(ctx, 220, y + 9, 30, 2, "#0a0a1c");
-      if (mf > 0) R(ctx, 220, y + 9, Math.max(1, Math.round(30 * mf)), 2, "#58a8ff");
+      R(ctx, G0.bar, y + 9, G0.barW, 2, "#0a0a1c");
+      if (mf > 0) R(ctx, G0.bar, y + 9, Math.max(1, Math.round(G0.barW * mf)), 2, "#58a8ff");
     });
     ctx.restore();
     var M = B.menu;
@@ -11476,11 +11549,11 @@ function BattleScene(formation, bgKind, opts) {
       var ag = cmdGeo(7), blink = Math.floor(B.t * 2) % 2;
       ctx.save();
       ctx.translate(0, E);
-      drawWindow(ctx, 84, 148, 54, 76 + BOT + PX);
-      drawText(ctx, "AUTO", 98, ag.y0, "#80ff90");
-      R(ctx, 126, ag.y0 + 2, 3, 3, blink ? "#80ff90" : "#306040");
+      drawWindow(ctx, 0, 148, CMD_W, 76 + BOT + PX);
+      drawText(ctx, "AUTO", 16, ag.y0, "#80ff90");
+      R(ctx, 44, ag.y0 + 2, 3, 3, blink ? "#80ff90" : "#306040");
       ["Tap or", "any key", "to stop"].forEach(function(t, i) {
-        drawText(ctx, t, 92, ag.y0 + (i + 1.4) * Math.min(ag.pitch, 12) + 2, "#a0c8ff");
+        drawText(ctx, t, 10, ag.y0 + (i + 1.4) * Math.min(ag.pitch, 12) + 2, "#a0c8ff");
       });
       ctx.restore();
     }
@@ -11489,12 +11562,12 @@ function BattleScene(formation, bgKind, opts) {
       if (M.mode === "cmd" || M.mode === "target" && M.prevMode === "cmd") {
         ctx.save();
         ctx.translate(0, E);
-        drawWindow(ctx, 84, 148, 54, 76 + BOT + PX);
+        drawWindow(ctx, 0, 148, CMD_W, 76 + BOT + PX);
         var cg = cmdGeo(cmds.length);
         cmds.forEach(function(c, i) {
-          drawText(ctx, CMD_LABEL[c] || c, 99, cg.y0 + i * cg.pitch, c === "Run" && (opts.boss || opts.noRun) ? "#8080a0" : c === "Auto" ? "#80ff90" : "#ffffff");
+          drawText(ctx, CMD_LABEL[c] || c, CMD_TX, cg.y0 + i * cg.pitch, c === "Run" && (opts.boss || opts.noRun) ? "#8080a0" : c === "Auto" ? "#80ff90" : "#ffffff");
         });
-        if (M.mode === "cmd") ctx.drawImage(SPR.hand, 86, cg.y0 + M.ci * cg.pitch);
+        if (M.mode === "cmd") ctx.drawImage(SPR.hand, 3, cg.y0 + M.ci * cg.pitch);
         ctx.restore();
       }
       if (M.mode === "list" || M.mode === "combo" || M.mode === "target" && M.prevMode === "list") {

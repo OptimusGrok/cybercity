@@ -11646,6 +11646,22 @@ function BattleScene(formation, bgKind, opts) {
       drawText(ctx, B.msg, Math.max(8, 128 - w / 2 + 8), 32);
     }
     if (B.vic) VIC.draw();
+    if (B.phase === "victory" || B.phase === "done" && B.vicHT) {
+      B.vicHT = (B.vicHT || 0) + 1 / 60;
+      var va = Math.min(1, B.vicHT * 3), vs = 2, vw = 7 * 6 * vs, vy = Auto.on || Speed.mode !== 1 ? 50 : 40;
+      ctx.save();
+      ctx.globalAlpha = va * (B.phase === "done" ? 0.6 : 1);
+      ctx.globalAlpha *= 0.35;
+      ctx.fillStyle = "#05040c";
+      ctx.fillRect(0, vy - 5, 256, 24);
+      ctx.globalAlpha = va * (B.phase === "done" ? 0.6 : 1);
+      ctx.fillStyle = "#22e6ff";
+      ctx.fillRect(0, vy - 5, 256, 1);
+      ctx.fillStyle = "#ff3cd8";
+      ctx.fillRect(0, vy + 18, 256, 1);
+      drawTextBig(ctx, "VICTORY", Math.round(128 - vw / 2 + (1 - va) * -20), vy, vs, "#ffffff", "#22e6ff", "#200040");
+      ctx.restore();
+    }
   };
   B.debugWin = function() {
     B.enemies.forEach(function(e) {

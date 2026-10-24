@@ -38457,7 +38457,7 @@ var CCIS = (function() {
 
 // ---- cc_gutters_skin.js ----
 var CCGS = (function() {
-  var S = { on: true, sprites: true, fp: false };
+  var S = { on: true, sprites: true, fp: false, gfx: true, haze: false }, GL = null;
   function hs(a, b) {
     var h = a * 374761393 + b * 668265263 | 0;
     h = (h ^ h >>> 13) * 1274126177 | 0;
@@ -38535,6 +38535,21 @@ var CCGS = (function() {
     if (r() > 0.8) {
       P(g, X + 3 + Math.floor(r() * 8), Y + 3 + Math.floor(r() * 8), 4, 2, "rgba(10,10,16,0.35)");
     }
+    if ((x & 1) === 0) P(g, X, Y, 1, 16, "rgba(14,13,20,0.55)");
+    if ((y & 1) === 0) P(g, X, Y, 16, 1, "rgba(14,13,20,0.55)");
+    if (hs(x * 3 + 11, y * 5 + 7) > 0.62) {
+      var tr = srand(x * 4513 + y * 9127 >>> 0), ty = Y + 3 + Math.floor(tr() * 10), tx0 = X + Math.floor(tr() * 4), tx1 = X + 10 + Math.floor(tr() * 6), bend = tx0 + 3 + Math.floor(tr() * 5), tc = "#2a3550";
+      P(g, tx0, ty, bend - tx0, 1, tc);
+      var ty2 = Math.max(Y + 1, Math.min(Y + 14, ty + (tr() > 0.5 ? 3 : -3)));
+      for (var q = 0; q <= Math.abs(ty2 - ty); q++) P(g, bend + q, ty + (ty2 > ty ? q : -q), 1, 1, tc);
+      P(g, bend + Math.abs(ty2 - ty), ty2, Math.max(1, tx1 - bend - Math.abs(ty2 - ty)), 1, tc);
+      P(g, tx0 - 1, ty - 1, 2, 2, "#323e5c");
+      if (GL && hs(x + 77, y + 3) > 0.9) {
+        var nc = hs(x, y + 41) > 0.5 ? "#22e6ff" : "#ff3cd8";
+        P(g, tx1 - 1, ty2, 1, 1, nc);
+        GL.push({ x: tx1 - 1, y: ty2, col: nc, r: 8, a: 0.45, k: "pulse", s: hs(x, y), b: 1 });
+      }
+    }
     if (r() > 0.7) {
       var sx = X + Math.floor(r() * 13), sy = Y + Math.floor(r() * 13);
       P(g, sx, sy, 2, 1, "#45444e");
@@ -38569,6 +38584,25 @@ var CCGS = (function() {
     var st = function(t) {
       return t && STREET[t];
     };
+    if (S.gfx && GL) {
+      var ph = hs(x * 13 + 3, y * 7 + 19);
+      if (ph > 0.86) {
+        var pw = 6 + Math.floor(hs(x, y + 5) * 5), px0 = X + 2 + Math.floor(hs(x + 9, y) * (12 - pw)), py0 = Y + 5 + Math.floor(hs(x, y + 9) * 6);
+        P(g, px0 + 1, py0, pw - 2, 1, "#151a28");
+        P(g, px0, py0 + 1, pw, 2, "#151a28");
+        P(g, px0 + 1, py0 + 3, pw - 2, 1, "#151a28");
+        P(g, px0 + 2, py0 + 1, pw - 4, 1, "#3a4a6e");
+        P(g, px0 + 1, py0 + 2, 2, 1, "#28324c");
+        B_PUD.push([px0 + pw / 2, py0 + 2, pw]);
+      } else if (ph < 0.035) {
+        P(g, X + 4, Y + 4, 8, 8, "#1a1920");
+        P(g, X + 5, Y + 4, 6, 8, "#2a2932");
+        P(g, X + 4, Y + 5, 8, 6, "#2a2932");
+        for (var mq = 0; mq < 3; mq++) P(g, X + 5, Y + 6 + mq * 2, 6, 1, "#1a1920");
+        P(g, X + 5, Y + 5, 6, 1, "#3c3b46");
+        B_STEAM.push([X + 8, Y + 8, hs(x, y)]);
+      }
+    }
     if (!st(at(x, y - 1))) {
       P(g, X, Y, 16, 1, C.curbD);
       P(g, X, Y + 1, 16, 1, C.curbL);
@@ -38604,6 +38638,33 @@ var CCGS = (function() {
       for (i = 0; i < 3; i++) P(g, X + 5, Y + 5 + i, 5, 1, i % 2 ? c[1] : c[4]);
       P(g, X + 10, Y + 4, 1, 1, hs(x, y) > 0.5 ? "#ff3050" : "#39ff88");
     }
+    if (S.gfx && up && dn && lf && rt) {
+      var rh = hs(x * 7 + 3, y * 11 + 1);
+      if (rh < 0.07) {
+        P(g, X + 3, Y + 3, 10, 9, c[4]);
+        P(g, X + 4, Y + 4, 8, 7, "#2a3a58");
+        P(g, X + 4, Y + 4, 8, 3, "#4a6a9a");
+        P(g, X + 8, Y + 4, 1, 7, c[4]);
+        P(g, X + 4, Y + 7, 8, 1, c[4]);
+        P(g, X + 4, Y + 4, 3, 1, "#9ac0ff");
+        L.push({ x: X + 8, y: Y + 7, col: "#6a9aff", r: 12, a: 0.35, k: "win", s: rh, b: 1 });
+      } else if (rh > 0.93) {
+        P(g, X + 7, Y + 2, 1, 11, "#15131c");
+        P(g, X + 8, Y + 3, 1, 10, "rgba(0,0,0,0.4)");
+        P(g, X + 5, Y + 5, 5, 1, "#15131c");
+        P(g, X + 6, Y + 8, 3, 1, "#15131c");
+        P(g, X + 6, Y + 12, 4, 2, "#15131c");
+        P(g, X + 7, Y + 1, 1, 1, "#ff3050");
+        L.push({ x: X + 7, y: Y + 1, col: "#ff3050", r: 7, a: 0.6, k: "warn", s: rh, b: 1 });
+      } else if (rh > 0.86) {
+        for (var sp = 0; sp < 2; sp++) {
+          P(g, X + 2 + sp * 7, Y + 4, 6, 8, "#1c2438");
+          P(g, X + 2 + sp * 7, Y + 4, 6, 1, "#3c5480");
+          P(g, X + 2 + sp * 7, Y + 8, 6, 1, "#141a2a");
+          P(g, X + 5 + sp * 7, Y + 4, 1, 8, "#141a2a");
+        }
+      }
+    }
     if (!up) {
       P(g, X, Y, 16, 2, c[3]);
       P(g, X, Y, 16, 1, shade(c[3], 1.25));
@@ -38619,6 +38680,12 @@ var CCGS = (function() {
     if (!dn) {
       P(g, X, Y + 13, 16, 3, c[4]);
       P(g, X, Y + 12, 16, 1, shade(c[3], 0.9));
+      if (S.gfx) {
+        var ec = t === "roofb" ? "#22e6ff" : t === "roofm" ? "#ff3cd8" : "#a05cff";
+        P(g, X, Y + 15, 16, 1, ec);
+        P(g, X, Y + 14, 16, 1, mix(ec, c[4], 0.6));
+        if (x % 4 === 0) L.push({ x: X + 16, y: Y + 15, col: ec, r: 14, a: 0.3, k: "trim", s: hs(x, y), b: 1 });
+      }
     }
   }
   function shopWall(g, X, Y, x, y) {
@@ -38877,6 +38944,22 @@ var CCGS = (function() {
     if (t === "window") return windowT(g, X, Y, x, y, L);
     if (t === "jshut") return shutter(g, X, Y, x, y);
     if (t === "door") return doorT(g, X, Y, x, y, k, L);
+    if (t === "wall" && S.gfx && hs(x * 5 + 2, y * 3 + 9) > 0.8) {
+      shopWall(g, X, Y, x, y);
+      var bc = C.neon[Math.floor(hs(x + 3, y + 8) * C.neon.length)];
+      P(g, X + 5, Y + 1, 6, 14, "#0c0b12");
+      P(g, X + 5, Y + 1, 6, 1, bc);
+      P(g, X + 5, Y + 14, 6, 1, bc);
+      P(g, X + 5, Y + 1, 1, 14, bc);
+      P(g, X + 10, Y + 1, 1, 14, bc);
+      for (var gq = 0; gq < 3; gq++) {
+        var gy = Y + 3 + gq * 4;
+        P(g, X + 7, gy, 2, 1, mix(bc, "#ffffff", 0.4));
+        P(g, X + (hs(x, y + gq) > 0.5 ? 7 : 8), gy + 1, 1, 2, mix(bc, "#ffffff", 0.4));
+      }
+      L.push({ x: X + 8, y: Y + 8, col: bc, r: 20, a: 0.6, k: "sign", s: hs(x, y + 1), b: 1 });
+      return;
+    }
     if (t === "wall") {
       shopWall(g, X, Y, x, y);
       var lt = at(x - 1, y), rtt = at(x + 1, y);
@@ -38925,6 +39008,27 @@ var CCGS = (function() {
       else if (t === "well") L.push({ x: x * 16 + 8, y: y * 16 + 6, col: "#00e5ff", r: 24, a: 0.6, k: "kiosk", s: h, b: 1 });
     }
   }
+  var B_PUD = [], B_STEAM = [];
+  function tall(t) {
+    return !!(t && (ROOF[t] || t === "tree" || SHOP[t] || MTL[t] && t !== "mtlF"));
+  }
+  function shadows(g, f, at) {
+    for (var y = 0; y < f.h; y++) for (var x = 0; x < f.w; x++) {
+      var t = at(x, y);
+      if (!t || tall(t)) continue;
+      var X = x * 16, Y = y * 16, i;
+      if (tall(at(x, y - 1))) {
+        g.fillStyle = "rgba(4,3,10,0.38)";
+        g.fillRect(X, Y, 16, 3);
+        g.fillStyle = "rgba(4,3,10,0.2)";
+        g.fillRect(X, Y + 3, 16, 3);
+      }
+      if (tall(at(x - 1, y))) {
+        g.fillStyle = "rgba(4,3,10,0.25)";
+        g.fillRect(X, Y, 3, 16);
+      }
+    }
+  }
   var AMBIENT = "#5a5880", AMB_ROOF = "#9a98c4", AMB_STREET = "#6e6c94", B = null, ANIM = { torch: 1, lamp: 1, flick: 1, sign: 1, warn: 1, pulse: 1, holo: 1, kiosk: 1, crys: 1, bulb: 1 };
   function snapOK(f) {
     if (!B || B.w !== f.w || B.h !== f.h) return false;
@@ -38940,7 +39044,9 @@ var CCGS = (function() {
     };
     B = { w: f.w, h: f.h, snap: f.grid.map(function(r) {
       return r.slice();
-    }), fr: [], lights: [], nf: 1 };
+    }), fr: [], lights: [], nf: 1, pud: [], steam: [] };
+    B_PUD = B.pud;
+    B_STEAM = B.steam;
     for (var y = 0; y < f.h; y++) for (var x = 0; x < f.w; x++) {
       var d = TILE_DEFS[f.grid[y][x]];
       if (d && d.frames > 1) B.nf = 2;
@@ -38953,16 +39059,23 @@ var CCGS = (function() {
       var g = cv.getContext("2d");
       g.imageSmoothingEnabled = false;
       if (k === 0) {
+        GL = B.lights;
         for (y = 0; y < f.h; y++) for (x = 0; x < f.w; x++) paint(g, f, x, y, 0, at, B.lights);
+        GL = null;
+        if (S.gfx) shadows(g, f, at);
       } else {
         g.drawImage(B.fr[0], 0, 0);
         var dummy = [];
+        B_PUD = [];
+        B_STEAM = [];
         for (y = 0; y < f.h; y++) for (x = 0; x < f.w; x++) {
           var dd = TILE_DEFS[f.grid[y][x]];
           if (dd && dd.frames > 1) paint(g, f, x, y, k, at, dummy);
         }
       }
       B.fr.push(cv);
+      B_PUD = B.pud;
+      B_STEAM = B.steam;
     }
     ruleLights(f, B.lights);
     var lm = document.createElement("canvas");
@@ -39082,6 +39195,42 @@ var CCGS = (function() {
     ctx.drawImage(gimg("#bfe6ff", 36), Math.round(p.px - cx - 36), Math.round(p.py - 8 - cy - 36));
     ctx.restore();
     ctx.globalAlpha = 1;
+    if (S.gfx) {
+      ctx.globalCompositeOperation = "lighter";
+      if (S.haze) for (i = 0; i < 2; i++) {
+        var hr = 110, hx = (T * (6 + i * 4) + i * 170) % (vw + hr * 2) - hr, hy = vh * (0.3 + 0.4 * i) + Math.sin(T * 0.2 + i) * 20;
+        ctx.globalAlpha = 0.07;
+        ctx.drawImage(gimg(i ? "#ff3cd8" : "#3a8cff", hr), Math.round(hx - hr), Math.round(hy - hr));
+      }
+      ctx.globalCompositeOperation = "source-over";
+      for (i = 0; i < B.steam.length; i++) {
+        var st = B.steam[i];
+        sx = st[0] - cx;
+        sy = st[1] - cy;
+        if (sx < -20 || sy < -40 || sx > vw + 20 || sy > vh + 20) continue;
+        for (var j = 0; j < 3; j++) {
+          var u = (T * 0.35 + st[2] * 5 + j / 3) % 1;
+          ctx.globalAlpha = 0.22 * Math.sin(u * 3.14);
+          ctx.drawImage(gimg("#9a9ab8", 6 + Math.round(u * 8)), Math.round(sx - 6 - Math.round(u * 8) + Math.sin(T + j) * 3), Math.round(sy - u * 30 - 6 - Math.round(u * 8)));
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "rgba(170,210,255,0.55)";
+      for (i = 0; i < B.pud.length; i++) {
+        var pd = B.pud[i];
+        sx = pd[0] - cx;
+        sy = pd[1] - cy;
+        if (sx < -8 || sy < -8 || sx > vw + 8 || sy > vh + 8) continue;
+        var v = (T * 1.1 + hs(i, 5)) % 1, rr = Math.round(v * pd[2] / 2);
+        if (v < 0.7) {
+          ctx.fillRect(Math.round(sx - rr), Math.round(sy), 1, 1);
+          ctx.fillRect(Math.round(sx + rr), Math.round(sy), 1, 1);
+          if (rr > 1) {
+            ctx.fillRect(Math.round(sx), Math.round(sy - 1), 1, 1);
+          }
+        }
+      }
+    }
     ctx.fillStyle = "rgba(176,214,255,0.16)";
     for (i = 0; i < 26; i++) {
       var u = (T * 1.7 + hs(i, 1)) % 1, rx = ((hs(i, 2) * (vw + 60) - u * 18) % (vw + 60) + vw + 60) % (vw + 60) - 10, ry = u * (vh + 20) - 10;

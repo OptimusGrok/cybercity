@@ -38840,15 +38840,6 @@ var CCGS = (function() {
       P(g, X + q[0], Y + q[1], q[2], q[3], q[4]);
       P(g, X + q[0], Y + q[1], q[2], 1, shade(q[4], 1.35));
     });
-    var c = C.crys[Math.floor(hs(x, y) * 3)];
-    P(g, X + 7, Y + 2, 2, 8, c);
-    P(g, X + 7, Y + 1, 1, 1, c);
-    P(g, X + 7, Y + 2, 1, 7, "#efe4ff");
-    P(g, X + 4, Y + 5, 2, 5, shade(c, 0.75));
-    P(g, X + 4, Y + 4, 1, 1, shade(c, 0.75));
-    P(g, X + 10, Y + 5, 2, 4, shade(c, 0.62));
-    P(g, X + 11, Y + 4, 1, 1, shade(c, 0.62));
-    L.push({ x: X + 8, y: Y + 7, col: c, r: 22, a: 0.65, k: "crys", s: hs(x + 1, y), b: 1 });
   }
   function lamp(g, X, Y, x, y, L) {
     P(g, X + 4, Y + 13, 8, 2, "rgba(0,0,0,0.45)");
@@ -38935,7 +38926,6 @@ var CCGS = (function() {
     if (t === "cobble") return street(g, X, Y, x, y, at);
     if (t === "grass") {
       ground(g, X, Y, x, y);
-      if (hs(x * 11 + 5, y * 17 + 3) > 0.972) crystal(g, X, Y, x, y, L);
       return;
     }
     if (ROOF[t]) return roof(g, X, Y, x, y, t, at, L);
